@@ -3,26 +3,32 @@
 #include "base.h"
 
 typedef enum {
-    EXPR_ILLEGAL,
+    AST_ILLEGAL,
 
-    EXPR_INT,
+    AST_INT,
 
-    EXPR_ADD,
-    EXPR_SUB,
-    EXPR_MUL,
-    EXPR_DIV,
+    AST_ADD,
+    AST_SUB,
+    AST_MUL,
+    AST_DIV,
 
-    NUM_EXPR_KINDS,
-} ExprKind;
+    AST_BLOCK,
+    AST_RETURN,
 
-typedef struct Expr Expr;
-struct Expr {
-    ExprKind kind;
+    NUM_AST_KINDS,
+} ASTKind;
+
+typedef struct AST AST;
+struct AST {
+    AST* next;
+    ASTKind kind;
     union {
         u64 int_val;
         struct {
-            Expr* l;
-            Expr* r;
+            AST* l;
+            AST* r;
         } bin;
+        AST* block_first;
+        AST* return_val;
     };
 };

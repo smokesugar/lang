@@ -4,7 +4,11 @@
 
 enum {
     TOK_EOF,
+
     TOK_INT = 256,
+    TOK_IDENT,
+
+    TOK_RETURN,
 };
 
 typedef struct {

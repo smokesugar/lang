@@ -6,21 +6,32 @@
 
 #define ARENA_CAP (5 * 1024 * 1024)
 
-internal i64 eval(Expr* e) {
+internal i64 eval(AST* e) {
     switch (e->kind) {
-        case EXPR_INT:
+        default:
+            assert(false);
+            return -1;
+        case AST_INT:
             return e->int_val;
-        case EXPR_ADD:
+        case AST_ADD:
             return eval(e->bin.l) + eval(e->bin.r);
-        case EXPR_SUB:
+        case AST_SUB:
             return eval(e->bin.l) - eval(e->bin.r);
-        case EXPR_MUL:
+        case AST_MUL:
             return eval(e->bin.l) * eval(e->bin.r);
-        case EXPR_DIV:
+        case AST_DIV:
             return eval(e->bin.l) / eval(e->bin.r);
+        case AST_BLOCK: {
+            for (AST* c = e->block_first; c; c = c->next) {
+                eval(c);
+            }
+            return -1;
+        }
+        case AST_RETURN: {
+            printf("Returned with %lld\n", eval(e->return_val));
+            exit(0);
+        }
     }
-
-    return -1;
 }
 
 int main() {
@@ -44,10 +55,11 @@ int main() {
     size_t src_len = fread(src, 1, file_len, file);
     src[src_len] = '\0';
 
-    Expr* expr = parse(&arena, src);
-    if (!expr) return 1;
+    AST* ast = parse(&arena, src);
+    if (!ast) return 1;
 
-    printf("Result: %lld\n", eval(expr));
+    eval(ast);
 
-    return 0;
+    printf("Program did not return.\n");
+    return 1;
 }
