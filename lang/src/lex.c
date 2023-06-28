@@ -62,7 +62,6 @@ Token lex(Lexer* l) {
     int kind = *start;
     int line = l->line;
 
-
     switch (kind) {
         default:
             if (isdigit(*start)) {

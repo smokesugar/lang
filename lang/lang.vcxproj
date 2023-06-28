@@ -135,8 +135,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\ir.c" />
+    <ClCompile Include="src\ir_gen.c" />
     <ClCompile Include="src\lex.c" />
     <ClCompile Include="src\main.c" />
+    <ClCompile Include="src\opt.c" />
     <ClCompile Include="src\parse.c" />
   </ItemGroup>
   <ItemGroup>
@@ -145,7 +148,11 @@
   <ItemGroup>
     <ClInclude Include="src\ast.h" />
     <ClInclude Include="src\base.h" />
+    <ClInclude Include="src\core.h" />
+    <ClInclude Include="src\ir.h" />
+    <ClInclude Include="src\ir_gen.h" />
     <ClInclude Include="src\lex.h" />
+    <ClInclude Include="src\opt.h" />
     <ClInclude Include="src\parse.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

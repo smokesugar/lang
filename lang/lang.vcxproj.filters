@@ -24,6 +24,15 @@
     <ClCompile Include="src\parse.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\ir_gen.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ir.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\opt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\test.lang" />
@@ -39,6 +48,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\parse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ir.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ir_gen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\opt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

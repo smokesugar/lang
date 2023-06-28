@@ -15,7 +15,9 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
+#define BIT(x) (1 << x)
 #define internal static
+#define LEN(x) (sizeof(x)/sizeof(x[0]))
 
 typedef struct {
     void* ptr;
@@ -39,3 +41,15 @@ inline void* arena_push_clear(Arena* arena, size_t size) {
 
 #define arena_push_array(arena, type, count) (type*)arena_push_clear(arena, count * sizeof(type))
 #define arena_push_type(arena, type) arena_push_array(arena, type, 1)
+
+// From https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+inline u64 fnv_1_a_hash(void* data, int len) {
+    u64 hash = 0xcbf29ce484222325;
+
+    for (int i = 0; i < len; ++i) {
+        hash ^= ((u8*)data)[i];
+        hash *= 0x100000001b3;
+    }
+
+    return hash;
+}

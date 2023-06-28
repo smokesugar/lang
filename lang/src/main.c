@@ -2,35 +2,56 @@
 #include <stdlib.h>
 
 #include "base.h"
+#include "ir_gen.h"
 #include "parse.h"
+#include "core.h"
+#include "opt.h"
 
 #define ARENA_CAP (5 * 1024 * 1024)
 
-internal i64 eval(AST* e) {
-    switch (e->kind) {
+static Arena scratch_arenas[3];
+
+Scratch get_scratch(Arena** conflicts, int conflict_count) {
+    for (int i = 0; i < LEN(scratch_arenas); ++i)
+    {
+        bool does_conflict = false;
+
+        for (int j = 0; j < conflict_count; ++j)
+        {
+            if (&scratch_arenas[i] == conflicts[j]) {
+                does_conflict = true;
+                break;
+            }
+        }
+    
+        if (!does_conflict) {
+            return (Scratch) {
+                .arena = scratch_arenas + i,
+                .used = scratch_arenas[i].used
+            };
+        }
+    }
+
+    assert(false && "all scratch arenas conflict!");
+    return (Scratch) { 0 };
+}
+
+void release_scratch(Scratch* scratch) {
+    assert(scratch->arena->used >= scratch->used);
+    scratch->arena->used = scratch->used;
+}
+
+internal i64 operand_val(i64* regs, IROperand operand) {
+    switch (operand.kind) {
         default:
             assert(false);
-            return -1;
-        case AST_INT:
-            return e->int_val;
-        case AST_ADD:
-            return eval(e->bin.l) + eval(e->bin.r);
-        case AST_SUB:
-            return eval(e->bin.l) - eval(e->bin.r);
-        case AST_MUL:
-            return eval(e->bin.l) * eval(e->bin.r);
-        case AST_DIV:
-            return eval(e->bin.l) / eval(e->bin.r);
-        case AST_BLOCK: {
-            for (AST* c = e->block_first; c; c = c->next) {
-                eval(c);
-            }
-            return -1;
-        }
-        case AST_RETURN: {
-            printf("Returned with %lld\n", eval(e->return_val));
-            exit(0);
-        }
+            return 0;
+
+        case IR_OPERAND_REG:
+            return regs[operand.reg];
+
+        case IR_OPERAND_INTEGER:
+            return operand.integer;
     }
 }
 
@@ -39,6 +60,13 @@ int main() {
         .ptr = malloc(ARENA_CAP),
         .cap = ARENA_CAP,
     };
+
+    for (int i = 0; i < LEN(scratch_arenas); ++i) {
+        scratch_arenas[i] = (Arena){
+            .ptr = malloc(ARENA_CAP),
+            .cap = ARENA_CAP
+        };
+    }
 
     char* src_path = "examples/test.lang";
     FILE* file;
@@ -58,7 +86,42 @@ int main() {
     AST* ast = parse(&arena, src);
     if (!ast) return 1;
 
-    eval(ast);
+    IR ir = ir_gen(&arena, ast);
+    optimize(&ir);
+
+    print_ir(&ir);
+
+    i64 regs[512];
+
+    for (IRInstr* instr = ir.first_instr; instr; instr = instr->next) {
+        static_assert(NUM_IR_KINDS == 7, "not all ir ops handled");
+        switch (instr->op) {
+            default:
+                assert(false);
+                break;
+
+            case IR_IMM:
+                regs[instr->imm.dest] = operand_val(regs, instr->imm.val);
+                break;
+                
+            case IR_ADD:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) + operand_val(regs, instr->bin.r);
+                break;
+            case IR_SUB:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) - operand_val(regs, instr->bin.r);
+                break;
+            case IR_MUL:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) * operand_val(regs, instr->bin.r);
+                break;
+            case IR_DIV:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) / operand_val(regs, instr->bin.r);
+                break;
+
+            case IR_RET:
+                printf("Result: %lld\n", operand_val(regs, instr->ret_val));
+                return 0;
+        }
+    }
 
     printf("Program did not return.\n");
     return 1;
