@@ -234,6 +234,46 @@ internal AST* parse_stmt(P* p, AST* parent_block) {
 
             return node;
         }
+
+        case TOK_IF: {
+            lex(p->l);
+
+            AST* cond = parse_expr(p);
+            if (!cond) return 0;
+
+            AST* then = parse_block(p);
+            if (!then) return 0;
+
+            AST* els = 0;
+            if (lex_peek(p->l).kind == TOK_ELSE) {
+                lex(p->l);
+                els = parse_block(p);
+                if (!els) return 0;
+            }
+
+            AST* node = new_ast(p->arena, AST_IF, tok);
+            node->conditional.cond = cond;
+            node->conditional.then = then;
+            node->conditional.els = els;
+
+            return node;
+        }
+
+        case TOK_WHILE: {
+            lex(p->l);
+
+            AST* cond = parse_expr(p);
+            if (!cond) return 0;
+
+            AST* then = parse_block(p);
+            if (!then) return 0;
+
+            AST* node = new_ast(p->arena, AST_WHILE, tok);
+            node->conditional.cond = cond;
+            node->conditional.then = then;
+
+            return node;
+        }
     }
 
     AST* expr = parse_expr(p);

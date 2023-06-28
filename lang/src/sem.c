@@ -18,18 +18,20 @@ internal bool token_match_string(Token tok, String str) {
 }
 
 internal Symbol* find_symbol(Scope* scope, Token name) {
-    u32 index = fnv_1_a_hash(name.ptr, name.len) % scope->local_table_size;
+    if (scope->local_table_size > 0) {
+        u32 index = fnv_1_a_hash(name.ptr, name.len) % scope->local_table_size;
 
-    for (u32 i = 0; i < scope->local_table_size; ++i)
-    {
-        if (!scope->local_table[index]) {
-            break;
-        }
-        else if (token_match_string(name, scope->local_table[index]->name)) {
-            return scope->local_table[index];
-        }
+        for (u32 i = 0; i < scope->local_table_size; ++i)
+        {
+            if (!scope->local_table[index]) {
+                break;
+            }
+            else if (token_match_string(name, scope->local_table[index]->name)) {
+                return scope->local_table[index];
+            }
 
-        index = (index + 1) % scope->local_table_size;
+            index = (index + 1) % scope->local_table_size;
+        }
     }
 
     if (scope->parent)
@@ -39,7 +41,7 @@ internal Symbol* find_symbol(Scope* scope, Token name) {
 }
 
 internal bool sem(A* a, Scope* scope, AST* ast) {
-    static_assert(NUM_AST_KINDS == 15, "not all ast kinds handled");
+    static_assert(NUM_AST_KINDS == 17, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
@@ -142,6 +144,21 @@ internal bool sem(A* a, Scope* scope, AST* ast) {
             ast->var_decl.sym = sym;
 
             return sem(a, scope, ast->var_decl.init);
+        }
+
+        case AST_IF:
+        case AST_WHILE:
+        {
+            bool success = true;
+
+            success &= sem(a, scope, ast->conditional.cond);
+            success &= sem(a, scope, ast->conditional.then);
+
+            if (ast->conditional.els) {
+                success &= sem(a, scope, ast->conditional.els);
+            }
+
+            return success;
         }
     }
 }

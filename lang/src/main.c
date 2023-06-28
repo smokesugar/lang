@@ -107,8 +107,8 @@ int main() {
 
     i64 regs[512];
 
-    for (IRInstr* instr = ir.first_instr; instr; instr = instr->next) {
-        static_assert(NUM_IR_KINDS == 13, "not all ir ops handled");
+    for (IRInstr* instr = ir.first_instr; instr;) {
+        static_assert(NUM_IR_KINDS == 15, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
@@ -153,7 +153,18 @@ int main() {
             case IR_RET:
                 printf("Result: %lld\n", operand_val(regs, instr->ret_val));
                 return 0;
+
+            case IR_JMP:
+                instr = instr->jmp_loc->start;
+                continue;
+
+            case IR_BRANCH: {
+                IRBasicBlock* block = operand_val(regs, instr->branch.cond) ? instr->branch.then_loc : instr->branch.els_loc;
+                instr = block->start;
+            } continue;
         }
+
+        instr = instr->next;
     }
 
     printf("Program did not return.\n");

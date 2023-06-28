@@ -30,6 +30,8 @@ typedef enum {
     AST_BLOCK,
     AST_RETURN,
     AST_VAR_DECL,
+    AST_IF,
+    AST_WHILE,
 
     NUM_AST_KINDS,
 } ASTKind;
@@ -59,5 +61,10 @@ struct AST {
             AST* init;
             Symbol* sym;
         } var_decl;
+        struct {
+            AST* cond;
+            AST* then;
+            AST* els;
+        } conditional;
     };
 };

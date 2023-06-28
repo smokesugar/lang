@@ -29,6 +29,12 @@ internal int ident_kind(char* start, Lexer* l) {
     switch (start[0]) {
         case 'r':
             return check_kw(start, l, "return", TOK_RETURN);
+        case 'i':
+            return check_kw(start, l, "if", TOK_IF);
+        case 'e':
+            return check_kw(start, l, "else", TOK_ELSE);
+        case 'w':
+            return check_kw(start, l, "while", TOK_WHILE);
     }
 
     return TOK_IDENT;

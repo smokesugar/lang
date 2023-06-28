@@ -24,8 +24,16 @@ internal void print_operand(IROperand operand) {
 }
 
 void print_ir(IR* ir) {
-    for (IRInstr* instr = ir->first_instr; instr; instr = instr->next) {
-        static_assert(NUM_IR_KINDS == 13, "not all ir ops handled");
+    for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
+    {
+        if (instr->block->start == instr) {
+            for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+                if (b->start == instr)
+                    printf("bb.%d:\n", b->id);
+            }
+        }
+
+        static_assert(NUM_IR_KINDS == 15, "not all ir ops handled");
         switch (instr->op) {
             case IR_IMM:
                 printf("  ");
@@ -103,8 +111,43 @@ void print_ir(IR* ir) {
                 print_operand(instr->ret_val);
                 printf("\n");
                 break;
+
+            case IR_JMP:
+                printf("  jmp bb.%d\n", instr->jmp_loc->id);
+                break;
+
+            case IR_BRANCH:
+                printf("  branch ");
+                print_operand(instr->branch.cond);
+                printf(", bb.%d, bb.%d\n", instr->branch.then_loc->id, instr->branch.els_loc->id);
+                break;
         }
     }
 
+    for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+        if (!b->start)
+            printf("bb.%d:\n", b->id);
+    }
+
     printf("\n");
+}
+
+void remove_ir_instr(IR* ir, IRInstr* instr) {
+    if (instr->prev)
+        instr->prev->next = instr->next;
+    else
+        ir->first_instr = instr->next;
+
+    if (instr->next)
+        instr->next->prev = instr->prev;
+    
+    if (instr->block->start == instr) {
+        for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+            if (b->start == instr) {
+                b->start = instr->next;
+            }
+        }
+    }
+
+    instr->block->len--;
 }

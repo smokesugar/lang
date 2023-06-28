@@ -1,3 +1,16 @@
 {
-    return 1 != 0;
+    twenty := 0;
+
+    while twenty < 20 {
+        twenty = twenty + 1;
+    }
+
+    if 1 {
+        return twenty * 21;
+    }
+    else {
+        return 69;
+    }
+
+    return 4;
 }

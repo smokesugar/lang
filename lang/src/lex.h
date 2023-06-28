@@ -14,6 +14,9 @@ enum {
     TOK_EEQUAL,
 
     TOK_RETURN,
+    TOK_IF,
+    TOK_ELSE,
+    TOK_WHILE,
 };
 
 typedef struct {

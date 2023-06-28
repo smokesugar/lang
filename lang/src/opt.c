@@ -42,18 +42,16 @@ void optimize(IR* ir) {
     IRReg* reg_keys = arena_push_array(scratch.arena, IRReg, table_size);
     RegData* reg_data  = arena_push_array(scratch.arena, RegData, table_size);
 
-    for (IRInstr** p_instr = &ir->first_instr; *p_instr;)
+    for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
-        IRInstr* instr = *p_instr;
-
-        static_assert(NUM_IR_KINDS == 13, "not all ir ops handled");
+        static_assert(NUM_IR_KINDS == 15, "not all ir ops handled");
         switch (instr->op) {
             case IR_IMM: {
                 RegData* data = get_reg_data(reg_keys, reg_data, table_size, instr->imm.dest);
                 data->flags |= FLAG_IS_IMM;
                 data->imm = instr->imm.val;
-                *p_instr = instr->next;
-            } continue;
+                remove_ir_instr(ir, instr);
+            } break;
 
             case IR_LOAD:
                 opt_operand(reg_keys, reg_data, table_size, &instr->load.loc);
@@ -80,9 +78,14 @@ void optimize(IR* ir) {
             case IR_RET: {
                 opt_operand(reg_keys, reg_data, table_size, &instr->ret_val);
             } break;
-        }
 
-        p_instr = &(*p_instr)->next;
+            case IR_JMP: {
+            } break;
+
+            case IR_BRANCH: {
+                opt_operand(reg_keys, reg_data, table_size, &instr->branch.cond);
+            } break;
+        }
     }
 
     #undef FLAGS

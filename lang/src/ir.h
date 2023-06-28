@@ -25,6 +25,8 @@ typedef enum {
     IR_EQUAL,
 
     IR_RET,
+    IR_JMP,
+    IR_BRANCH,
 
     NUM_IR_KINDS
 } IROpCode;
@@ -35,6 +37,14 @@ typedef enum {
     IR_OPERAND_INTEGER,
     IR_OPERAND_ALLOCATION,
 } IROperandKind;
+
+typedef struct IRBasicBlock IRBasicBlock;
+struct IRBasicBlock {
+    int id;
+    IRBasicBlock* next;
+    struct IRInstr* start;
+    u32 len;
+};
 
 typedef u32 IRReg;
 
@@ -50,7 +60,9 @@ typedef struct {
 typedef struct IRInstr IRInstr;
 struct IRInstr {
     IRInstr* next;
+    IRInstr* prev;
     IROpCode op;
+    IRBasicBlock* block;
     union {
         struct {
             IRReg dest;
@@ -69,13 +81,21 @@ struct IRInstr {
             IROperand loc;
             IROperand src;
         } store;
+        IRBasicBlock* jmp_loc;
+        struct {
+            IROperand cond;
+            IRBasicBlock* then_loc;
+            IRBasicBlock* els_loc;
+        } branch;
         IROperand ret_val;
     };
 };
 
 typedef struct {
     IRInstr* first_instr;
+    IRBasicBlock* first_block;
     IRReg next_reg;
 } IR;
 
 void print_ir(IR* ir);
+void remove_ir_instr(IR* ir, IRInstr* instr);

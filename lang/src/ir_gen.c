@@ -3,7 +3,10 @@
 typedef struct {
     Arena* arena;
     IRInstr* cur_instr;
+    IRBasicBlock* cur_block;
+    IRBasicBlock* first_block_to_be_placed;
     IRReg next_reg;
+    int next_block_id;
 } G;
 
 internal IRInstr* new_ir_instr(Arena* arena, IROpCode op) {
@@ -13,8 +16,28 @@ internal IRInstr* new_ir_instr(Arena* arena, IROpCode op) {
     return instr;
 }
 
+internal IRBasicBlock* new_ir_basic_block(Arena* arena) {
+    return arena_push_type(arena, IRBasicBlock);
+}
+
 internal void emit(G* g, IRInstr* instr) {
     g->cur_instr = g->cur_instr->next = instr;
+
+    for (IRBasicBlock* b = g->first_block_to_be_placed; b; b = b->next)
+        b->start = instr;
+
+    g->cur_block->len++;
+    g->first_block_to_be_placed = 0;
+
+    instr->block = g->cur_block;
+}
+
+internal void place_block(G* g, IRBasicBlock* block) {
+    block->id = g->next_block_id++;
+    g->cur_block = g->cur_block->next = block;
+
+    if (!g->first_block_to_be_placed)
+        g->first_block_to_be_placed = block;
 }
 
 internal IRReg new_reg(G* g) {
@@ -43,7 +66,7 @@ internal IROperand allocation_operand(IRAllocation* allocation) {
 }
 
 internal IRReg gen(G* g, AST* ast) {
-    static_assert(NUM_AST_KINDS == 15, "not all ast kinds handled");
+    static_assert(NUM_AST_KINDS == 17, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
@@ -133,6 +156,9 @@ internal IRReg gen(G* g, AST* ast) {
             IRInstr* instr = new_ir_instr(g->arena, IR_RET);
             instr->ret_val = reg_operand(gen(g, ast->return_val));
             emit(g, instr);
+
+            place_block(g, new_ir_basic_block(g->arena));
+
             return 0;
         }
 
@@ -147,22 +173,87 @@ internal IRReg gen(G* g, AST* ast) {
 
             return 0;
         }
+
+        case AST_IF: {
+            IRBasicBlock* then = new_ir_basic_block(g->arena);
+            IRBasicBlock* els  = new_ir_basic_block(g->arena);
+            IRBasicBlock* end  = 0;
+
+            IRInstr* br = new_ir_instr(g->arena, IR_BRANCH);
+            br->branch.cond = reg_operand(gen(g, ast->conditional.cond));
+            br->branch.then_loc = then;
+            br->branch.els_loc  = els;
+            emit(g, br);
+
+            place_block(g, then);
+            gen(g, ast->conditional.then);
+
+            if (ast->conditional.els) {
+                end = new_ir_basic_block(g->arena);
+                IRInstr* jmp = new_ir_instr(g->arena, IR_JMP);
+                jmp->jmp_loc = end;
+                emit(g, jmp);
+            }
+
+            place_block(g, els);
+
+            if (ast->conditional.els) {
+                gen(g, ast->conditional.els);
+                place_block(g, end);
+            }
+
+            return 0;
+        }
+
+        case AST_WHILE: {
+            IRBasicBlock* start = new_ir_basic_block(g->arena);
+            IRBasicBlock* body  = new_ir_basic_block(g->arena);
+            IRBasicBlock* end   = new_ir_basic_block(g->arena);
+
+            place_block(g, start);
+            IRInstr* br = new_ir_instr(g->arena, IR_BRANCH);
+            br->branch.cond = reg_operand(gen(g, ast->conditional.cond));
+            br->branch.then_loc = body;
+            br->branch.els_loc  = end;
+            emit(g, br);
+
+            place_block(g, body);
+            gen(g, ast->conditional.then);
+
+            IRInstr* jmp = new_ir_instr(g->arena, IR_JMP);
+            jmp->jmp_loc = start;
+            emit(g, jmp);
+
+            place_block(g, end);
+
+            return 0;
+        }
     }
 }
 
 IR ir_gen(Arena* arena, AST* ast) {
     IRInstr instr_head = { 0 };
+    IRBasicBlock block_head = { 0 };
 
     G g = {
         .arena = arena,
         .cur_instr = &instr_head,
+        .cur_block = &block_head,
         .next_reg = 1
     };
 
+    place_block(&g, new_ir_basic_block(g.arena));
     gen(&g, ast);
+
+    IRInstr* prev = 0;
+    for (IRInstr* instr = instr_head.next; instr; instr = instr->next) {
+        instr->prev = prev;
+        prev = instr;
+    }
 
     return (IR) {
         .first_instr = instr_head.next,
-        .next_reg = g.next_reg
+        .first_block = block_head.next,
+        .next_reg = g.next_reg,
     };
 }
