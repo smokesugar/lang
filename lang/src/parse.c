@@ -72,6 +72,14 @@ internal int bin_prec(Token op) {
         case '+':
         case '-':
             return 10;
+        case '<':
+        case '>':
+        case TOK_LEQUAL:
+        case TOK_GEQUAL:
+            return 6;
+        case TOK_EEQUAL:
+        case TOK_NEQUAL:
+            return 5;
     }
 }
 
@@ -84,6 +92,8 @@ internal AST* parse_bin(P* p, int caller_prec) {
 
         AST* r = parse_bin(p, bin_prec(op));
         if (!r) return 0;
+
+        bool swap = false;
 
         ASTKind kind = AST_ILLEGAL;
         switch (op.kind) {
@@ -99,11 +109,31 @@ internal AST* parse_bin(P* p, int caller_prec) {
             case '-':
                 kind = AST_SUB;
                 break;
+            case '<':
+                kind = AST_LESS;
+                break;
+            case '>':
+                kind = AST_LESS;
+                swap = true;
+                break;
+            case TOK_LEQUAL:
+                kind = AST_LEQUAL;
+                break;
+            case TOK_GEQUAL:
+                kind = AST_LEQUAL;
+                swap = true;
+                break;
+            case TOK_EEQUAL:
+                kind = AST_EQUAL;
+                break;
+            case TOK_NEQUAL:
+                kind = AST_NEQUAL;
+                break;
         }
 
         AST* bin = new_ast(p->arena, kind, op);
-        bin->bin.l = l;
-        bin->bin.r = r;
+        bin->bin.l = swap ? r : l;
+        bin->bin.r = swap ? l : r;
         
         l = bin;
     }

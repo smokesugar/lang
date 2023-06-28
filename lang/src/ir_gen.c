@@ -43,7 +43,7 @@ internal IROperand allocation_operand(IRAllocation* allocation) {
 }
 
 internal IRReg gen(G* g, AST* ast) {
-    static_assert(NUM_AST_KINDS == 11, "not all ast kinds handled");
+    static_assert(NUM_AST_KINDS == 15, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
@@ -69,6 +69,10 @@ internal IRReg gen(G* g, AST* ast) {
         case AST_SUB:
         case AST_MUL:
         case AST_DIV:
+        case AST_LESS:
+        case AST_LEQUAL:
+        case AST_NEQUAL:
+        case AST_EQUAL:
         {
             IROpCode op = IR_ILLEGAL;
             switch (ast->kind) {
@@ -83,6 +87,18 @@ internal IRReg gen(G* g, AST* ast) {
                     break;
                 case AST_DIV:
                     op = IR_DIV;
+                    break;
+                case AST_LESS:
+                    op = IR_LESS;
+                    break;
+                case AST_LEQUAL:
+                    op = IR_LEQUAL;
+                    break;
+                case AST_NEQUAL:
+                    op = IR_NEQUAL;
+                    break;
+                case AST_EQUAL:
+                    op = IR_EQUAL;
                     break;
             }
 

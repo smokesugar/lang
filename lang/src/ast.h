@@ -20,6 +20,11 @@ typedef enum {
     AST_MUL,
     AST_DIV,
 
+    AST_LESS,
+    AST_LEQUAL,
+    AST_NEQUAL,
+    AST_EQUAL,
+
     AST_ASSIGN,
 
     AST_BLOCK,

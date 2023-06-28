@@ -39,7 +39,7 @@ internal Symbol* find_symbol(Scope* scope, Token name) {
 }
 
 internal bool sem(A* a, Scope* scope, AST* ast) {
-    static_assert(NUM_AST_KINDS == 11, "not all ast kinds handled");
+    static_assert(NUM_AST_KINDS == 15, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
@@ -61,7 +61,12 @@ internal bool sem(A* a, Scope* scope, AST* ast) {
         case AST_ADD:
         case AST_SUB:
         case AST_MUL:
-        case AST_DIV: {
+        case AST_DIV:
+        case AST_LESS:
+        case AST_LEQUAL:
+        case AST_NEQUAL:
+        case AST_EQUAL:
+        {
             bool success = true;
             success &= sem(a, scope, ast->bin.l);
             success &= sem(a, scope, ast->bin.r);

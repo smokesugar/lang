@@ -108,7 +108,7 @@ int main() {
     i64 regs[512];
 
     for (IRInstr* instr = ir.first_instr; instr; instr = instr->next) {
-        static_assert(NUM_IR_KINDS == 9, "not all ir ops handled");
+        static_assert(NUM_IR_KINDS == 13, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
@@ -136,6 +136,18 @@ int main() {
                 break;
             case IR_DIV:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) / operand_val(regs, instr->bin.r);
+                break;
+            case IR_LESS:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) < operand_val(regs, instr->bin.r);
+                break;
+            case IR_LEQUAL:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) <= operand_val(regs, instr->bin.r);
+                break;
+            case IR_NEQUAL:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) != operand_val(regs, instr->bin.r);
+                break;
+            case IR_EQUAL:
+                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) == operand_val(regs, instr->bin.r);
                 break;
 
             case IR_RET:

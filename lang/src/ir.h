@@ -19,6 +19,11 @@ typedef enum {
     IR_MUL,
     IR_DIV,
 
+    IR_LESS,
+    IR_LEQUAL,
+    IR_NEQUAL,
+    IR_EQUAL,
+
     IR_RET,
 
     NUM_IR_KINDS

@@ -25,7 +25,7 @@ internal void print_operand(IROperand operand) {
 
 void print_ir(IR* ir) {
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next) {
-        static_assert(NUM_IR_KINDS == 9, "not all ir ops handled");
+        static_assert(NUM_IR_KINDS == 13, "not all ir ops handled");
         switch (instr->op) {
             case IR_IMM:
                 printf("  ");
@@ -55,6 +55,10 @@ void print_ir(IR* ir) {
             case IR_SUB:
             case IR_MUL:
             case IR_DIV:
+            case IR_LESS:
+            case IR_LEQUAL:
+            case IR_NEQUAL:
+            case IR_EQUAL:
             {
                 printf("  ");
                 print_reg(instr->bin.dest);
@@ -72,6 +76,18 @@ void print_ir(IR* ir) {
                         break;
                     case IR_DIV:
                         op_str = "div";
+                        break;
+                    case IR_LESS:
+                        op_str = "cmp lt";
+                        break;
+                    case IR_LEQUAL:
+                        op_str = "cmp le";
+                        break;
+                    case IR_NEQUAL:
+                        op_str = "cmp ne";
+                        break;
+                    case IR_EQUAL:
+                        op_str = "cmp eq";
                         break;
                 }
 

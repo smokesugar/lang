@@ -8,6 +8,11 @@ enum {
     TOK_INT = 256,
     TOK_IDENT,
 
+    TOK_LEQUAL,
+    TOK_GEQUAL,
+    TOK_NEQUAL,
+    TOK_EEQUAL,
+
     TOK_RETURN,
 };
 

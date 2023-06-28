@@ -42,6 +42,14 @@ internal void eat_whitespace(Lexer* l) {
     }
 }
 
+internal bool match(Lexer* l, char c) {
+    if (*l->ptr == c) {
+        ++l->ptr;
+        return true;
+    }
+    return false;
+}
+
 Token lex(Lexer* l) {
     if (l->next.ptr) {
         Token tok = l->next;
@@ -77,6 +85,22 @@ Token lex(Lexer* l) {
             break;
         case '\0':
             --l->ptr;
+            break;
+        case '<':
+            if (match(l, '='))
+                kind = TOK_LEQUAL;
+            break;
+        case '>':
+            if (match(l, '='))
+                kind = TOK_GEQUAL;
+            break;
+        case '!':
+            if (match(l, '='))
+                kind = TOK_NEQUAL;
+            break;
+        case '=':
+            if (match(l, '='))
+                kind = TOK_EEQUAL;
             break;
     }
 
