@@ -20,6 +20,11 @@ typedef int64_t i64;
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
 
 typedef struct {
+    int len;
+    char* ptr;
+} String;
+
+typedef struct {
     void* ptr;
     size_t cap;
     size_t used;

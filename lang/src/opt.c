@@ -46,7 +46,7 @@ void optimize(IR* ir) {
     {
         IRInstr* instr = *p_instr;
 
-        static_assert(NUM_IR_KINDS == 7, "not all ir ops handled");
+        static_assert(NUM_IR_KINDS == 9, "not all ir ops handled");
         switch (instr->op) {
             case IR_IMM: {
                 RegData* data = get_reg_data(reg_keys, reg_data, table_size, instr->imm.dest);
@@ -54,6 +54,15 @@ void optimize(IR* ir) {
                 data->imm = instr->imm.val;
                 *p_instr = instr->next;
             } continue;
+
+            case IR_LOAD:
+                opt_operand(reg_keys, reg_data, table_size, &instr->load.loc);
+                break;
+
+            case IR_STORE:
+                opt_operand(reg_keys, reg_data, table_size, &instr->store.loc);
+                opt_operand(reg_keys, reg_data, table_size, &instr->store.src);
+                break;
 
             case IR_ADD:
             case IR_SUB:

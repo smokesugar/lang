@@ -1,3 +1,7 @@
 {
-    return 15 * 4 + 45 / 15 * 4 - 3;
+    bruh_moment := 3;
+    five := 0;
+    five = five + 5;
+    fifteen := five * 3;
+    return fifteen * 4 + 45 / fifteen * 4 - bruh_moment;
 }

@@ -8,24 +8,46 @@ internal void print_reg(IRReg reg) {
 
 internal void print_operand(IROperand operand) {
     switch (operand.kind) {
+        default:
+            assert(false);
+            break;
         case IR_OPERAND_REG:
             print_reg(operand.reg);
             break;
         case IR_OPERAND_INTEGER:
             printf("%llu", operand.integer);
             break;
+        case IR_OPERAND_ALLOCATION:
+            printf("[alloca %p]", operand.allocation);
+            break;
     }
 }
 
 void print_ir(IR* ir) {
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next) {
-        static_assert(NUM_IR_KINDS == 7, "not all ir ops handled");
+        static_assert(NUM_IR_KINDS == 9, "not all ir ops handled");
         switch (instr->op) {
             case IR_IMM:
                 printf("  ");
                 print_reg(instr->imm.dest);
                 printf(" = imm ");
                 print_operand(instr->imm.val);
+                printf("\n");
+                break;
+
+            case IR_LOAD:
+                printf("  ");
+                print_reg(instr->load.dest);
+                printf(" = load ");
+                print_operand(instr->load.loc);
+                printf("\n");
+                break;
+            
+            case IR_STORE:
+                printf("  store ");
+                print_operand(instr->store.loc);
+                printf(", ");
+                print_operand(instr->store.src);
                 printf("\n");
                 break;
 

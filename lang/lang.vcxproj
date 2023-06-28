@@ -141,6 +141,7 @@
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\opt.c" />
     <ClCompile Include="src\parse.c" />
+    <ClCompile Include="src\sem.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\test.lang" />
@@ -154,6 +155,7 @@
     <ClInclude Include="src\lex.h" />
     <ClInclude Include="src\opt.h" />
     <ClInclude Include="src\parse.h" />
+    <ClInclude Include="src\sem.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

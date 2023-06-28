@@ -27,5 +27,6 @@ typedef struct {
 Lexer lex_init(char* src);
 Token lex(Lexer* l);
 Token lex_peek(Lexer* l);
+void  lex_jump(Lexer* l, Token tok);
 
 void error_tok(char* src, Token tok, char* fmt, ...);

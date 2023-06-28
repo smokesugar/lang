@@ -6,6 +6,7 @@
 #include "parse.h"
 #include "core.h"
 #include "opt.h"
+#include "sem.h"
 
 #define ARENA_CAP (5 * 1024 * 1024)
 
@@ -55,6 +56,17 @@ internal i64 operand_val(i64* regs, IROperand operand) {
     }
 }
 
+internal i64* operand_addr(IROperand operand) {
+    switch (operand.kind) {
+        default:
+            assert(false);
+            return 0;
+
+        case IR_OPERAND_ALLOCATION:
+            return &operand.allocation->_val;
+    }
+}
+
 int main() {
     Arena arena = {
         .ptr = malloc(ARENA_CAP),
@@ -86,6 +98,8 @@ int main() {
     AST* ast = parse(&arena, src);
     if (!ast) return 1;
 
+    if (!sem_ast(&arena, src, ast)) return 1;
+
     IR ir = ir_gen(&arena, ast);
     optimize(&ir);
 
@@ -94,7 +108,7 @@ int main() {
     i64 regs[512];
 
     for (IRInstr* instr = ir.first_instr; instr; instr = instr->next) {
-        static_assert(NUM_IR_KINDS == 7, "not all ir ops handled");
+        static_assert(NUM_IR_KINDS == 9, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
@@ -102,6 +116,13 @@ int main() {
 
             case IR_IMM:
                 regs[instr->imm.dest] = operand_val(regs, instr->imm.val);
+                break;
+
+            case IR_LOAD:
+                regs[instr->load.dest] = *operand_addr(instr->load.loc);
+                break;
+            case IR_STORE:
+                *operand_addr(instr->store.loc) = operand_val(regs, instr->store.src);
                 break;
                 
             case IR_ADD:

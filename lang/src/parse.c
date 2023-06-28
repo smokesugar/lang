@@ -7,10 +7,11 @@ typedef struct {
     Lexer* l;
 } P;
 
-internal AST* new_ast(Arena* arena, ASTKind kind) {
+internal AST* new_ast(Arena* arena, ASTKind kind, Token tok) {
     assert(kind);
     AST* ast = arena_push_type(arena, AST);
     ast->kind = kind;
+    ast->tok = tok;
     return ast;
 }
 
@@ -40,8 +41,17 @@ internal AST* parse_primary(P* p) {
                 val += tok.ptr[i] - '0';
             }
 
-            AST* expr = new_ast(p->arena, AST_INT);
+            AST* expr = new_ast(p->arena, AST_INT, tok);
             expr->int_val = val;
+
+            return expr;
+        }
+
+        case TOK_IDENT: {
+            lex(p->l);
+
+            AST* expr = new_ast(p->arena, AST_VAR, tok);
+            expr->var.name = tok;
 
             return expr;
         }
@@ -91,7 +101,7 @@ internal AST* parse_bin(P* p, int caller_prec) {
                 break;
         }
 
-        AST* bin = new_ast(p->arena, kind);
+        AST* bin = new_ast(p->arena, kind, op);
         bin->bin.l = l;
         bin->bin.r = r;
         
@@ -101,35 +111,57 @@ internal AST* parse_bin(P* p, int caller_prec) {
     return l;
 }
 
-internal AST* parse_expr(P* p) {
-    return parse_bin(p, 0);
+internal AST* parse_assign(P* p) {
+    AST* l= parse_bin(p, 0);
+    if (!l) return 0;
+
+    if (lex_peek(p->l).kind == '=') {
+        Token equals = lex(p->l);
+
+        AST* r = parse_assign(p);
+        if (!r) return 0;
+
+        AST* bin = new_ast(p->arena, AST_ASSIGN, equals);
+        bin->bin.l = l;
+        bin->bin.r = r;
+
+        l = bin;
+    }
+
+    return l;
 }
 
-internal AST* parse_stmt(P* p);
+internal AST* parse_expr(P* p) {
+    return parse_assign(p);
+}
+
+internal AST* parse_stmt(P* p, AST* parent_block);
 
 internal AST* parse_block(P* p) {
+    Token lbrace = lex_peek(p->l);
     REQUIRE('{', "{");
 
     AST head = { 0 };
     AST* cur = &head;
 
+    AST* block = new_ast(p->arena, AST_BLOCK, lbrace);
+
     while (lex_peek(p->l).kind != TOK_EOF &&
            lex_peek(p->l).kind != '}')
     {
-        AST* stmt = parse_stmt(p);
+        AST* stmt = parse_stmt(p, block);
         if (!stmt) return 0;
         cur = cur->next = stmt;
     }
 
     REQUIRE('}', "}");
 
-    AST* block = new_ast(p->arena, AST_BLOCK);
-    block->block_first = head.next;
+    block->block.first_stmt = head.next;
 
     return block;
 }
 
-internal AST* parse_stmt(P* p) {
+internal AST* parse_stmt(P* p, AST* parent_block) {
     Token tok = lex_peek(p->l);
     switch (tok.kind) {
         case '{':
@@ -142,10 +174,35 @@ internal AST* parse_stmt(P* p) {
             if (!val) return 0;
             REQUIRE(';', ";");
 
-            AST* ret = new_ast(p->arena, AST_RETURN);
+            AST* ret = new_ast(p->arena, AST_RETURN, tok);
             ret->return_val = val;
 
             return ret;
+        }
+
+        case TOK_IDENT: {
+            lex(p->l);
+
+            if (lex_peek(p->l).kind != ':') {
+                lex_jump(p->l, tok);
+                break;
+            }
+
+            REQUIRE(':', ":");
+            REQUIRE('=', "=");
+
+            AST* init = parse_expr(p);
+            if (!init) return 0;
+
+            REQUIRE(';', ";");
+
+            AST* node = new_ast(p->arena, AST_VAR_DECL, tok);
+            node->var_decl.name = tok;
+            node->var_decl.init = init;
+
+            parent_block->block.num_locals++;
+
+            return node;
         }
     }
 

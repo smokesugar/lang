@@ -35,8 +35,15 @@ internal IROperand reg_operand(IRReg reg) {
     };
 }
 
+internal IROperand allocation_operand(IRAllocation* allocation) {
+    return (IROperand) {
+        .kind = IR_OPERAND_ALLOCATION,
+        .allocation = allocation
+    };
+}
+
 internal IRReg gen(G* g, AST* ast) {
-    static_assert(NUM_AST_KINDS == 8, "not all ast kinds handled");
+    static_assert(NUM_AST_KINDS == 11, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
@@ -48,7 +55,15 @@ internal IRReg gen(G* g, AST* ast) {
             instr->imm.val = integer_operand(ast->int_val);
             emit(g, instr);
             return instr->imm.dest;
-        } 
+        }
+
+        case AST_VAR: {
+            IRInstr* instr = new_ir_instr(g->arena, IR_LOAD);
+            instr->load.loc = allocation_operand(ast->var.sym->allocation);
+            instr->load.dest = new_reg(g);
+            emit(g, instr);
+            return instr->load.dest;
+        }
 
         case AST_ADD:
         case AST_SUB:
@@ -80,8 +95,21 @@ internal IRReg gen(G* g, AST* ast) {
             return instr->bin.dest;
         }
 
+        case AST_ASSIGN: {
+            assert(ast->bin.l->kind == AST_VAR);
+
+            IRReg result = gen(g, ast->bin.r);
+
+            IRInstr* instr = new_ir_instr(g->arena, IR_STORE);
+            instr->store.src = reg_operand(result);
+            instr->store.loc = allocation_operand(ast->bin.l->var.sym->allocation);
+            emit(g, instr);
+
+            return result;
+        }
+
         case AST_BLOCK:
-            for (AST* c = ast->block_first; c; c = c->next)
+            for (AST* c = ast->block.first_stmt; c; c = c->next)
                 gen(g, c);
             return 0;
 
@@ -89,6 +117,18 @@ internal IRReg gen(G* g, AST* ast) {
             IRInstr* instr = new_ir_instr(g->arena, IR_RET);
             instr->ret_val = reg_operand(gen(g, ast->return_val));
             emit(g, instr);
+            return 0;
+        }
+
+        case AST_VAR_DECL: {
+            IRAllocation* allocation = arena_push_type(g->arena, IRAllocation);
+            ast->var_decl.sym->allocation = allocation;
+
+            IRInstr* instr = new_ir_instr(g->arena, IR_STORE);
+            instr->store.src = reg_operand(gen(g, ast->var_decl.init));
+            instr->store.loc = allocation_operand(allocation);
+            emit(g, instr);
+
             return 0;
         }
     }

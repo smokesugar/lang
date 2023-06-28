@@ -2,10 +2,17 @@
 
 #include "base.h"
 
+typedef struct {
+    i64 _val; // Temporary
+} IRAllocation;
+
 typedef enum {
     IR_ILLEGAL,
 
     IR_IMM,
+
+    IR_STORE,
+    IR_LOAD,
     
     IR_ADD,
     IR_SUB,
@@ -21,6 +28,7 @@ typedef enum {
     IR_OPERAND_ILLEGAL,
     IR_OPERAND_REG,
     IR_OPERAND_INTEGER,
+    IR_OPERAND_ALLOCATION,
 } IROperandKind;
 
 typedef u32 IRReg;
@@ -30,6 +38,7 @@ typedef struct {
     union {
         IRReg reg;
         u64 integer;
+        IRAllocation* allocation;
     };
 } IROperand;
 
@@ -47,6 +56,14 @@ struct IRInstr {
             IROperand l;
             IROperand r;
         } bin;
+        struct {
+            IRReg dest;
+            IROperand loc;
+        } load;
+        struct {
+            IROperand loc;
+            IROperand src;
+        } store;
         IROperand ret_val;
     };
 };

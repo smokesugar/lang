@@ -96,6 +96,12 @@ Token lex_peek(Lexer* l) {
     return l->next;
 }
 
+void  lex_jump(Lexer* l, Token tok) {
+    l->next.ptr = 0;
+    l->ptr = tok.ptr;
+    l->line = tok.line;
+}
+
 void error_tok(char* src, Token tok, char* fmt, ...) {
     char* l = tok.ptr;
     while (l != src && *l != '\n')
