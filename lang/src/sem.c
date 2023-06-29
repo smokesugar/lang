@@ -107,26 +107,24 @@ internal u64 get_primitive_priority(Type* type) {
     return type->size * 2 + ((type->flags & TYPE_IS_SIGNED) == 0);
 }
 
-internal void cast(Arena* arena, AST* expr, Type* type) {
+internal AST* cast(Arena* arena, AST* expr, Type* type) {
     AST* c = new_ast(arena, AST_CAST, expr->tok);
-    *c = *(AST*)expr;
-
-    expr->kind = AST_CAST;
-    expr->type = type;
-    expr->cast.expr = c;
+    c->type = type;
+    c->cast.expr = expr;
+    return c;
 }
 
-internal bool check_assign_types(A* a, Token tok, Type* left_type, AST* right) {
+internal bool check_assign_types(A* a, Token tok, Type* left_type, AST** right) {
     bool success = true;
 
-    if (right->kind == AST_INT) {
-        right->type = left_type;
+    if ((*right)->kind == AST_INT) {
+        (*right)->type = left_type;
     }
-    else if (right->type != left_type) {
-        if (get_primitive_priority(right->type) <
+    else if ((*right)->type != left_type) {
+        if (get_primitive_priority((*right)->type) <
             get_primitive_priority(left_type))
         {
-            cast(a->arena, right, left_type);
+            *right = cast(a->arena, *right, left_type);
         }
         else {
             error_tok(a->src, tok, "lvalue cannot store this value because of its type");
@@ -237,11 +235,11 @@ internal bool sem(A* a, Scope* scope, AST* ast) {
                 assert(left_priority != right_priority);
 
                 if (left_priority > right_priority) {
-                    cast(a->arena, right, left->type);
+                    ast->bin.r = right = cast(a->arena, right, left->type);
                     ast->type = left->type;
                 }
                 else {
-                    cast(a->arena, left, right->type);
+                    ast->bin.l = left = cast(a->arena, left, right->type);
                     ast->type = right->type;
                 }
             }
@@ -263,7 +261,7 @@ internal bool sem(A* a, Scope* scope, AST* ast) {
                 success = false;
             }
 
-            success &= check_assign_types(a, ast->tok, ast->bin.l->type, ast->bin.r);
+            success &= check_assign_types(a, ast->tok, ast->bin.l->type, &ast->bin.r);
             ast->type = ast->bin.l->type;
 
             return success;
@@ -335,7 +333,7 @@ internal bool sem(A* a, Scope* scope, AST* ast) {
             ast->var_decl.sym = sym;
 
             success &= sem(a, scope, ast->var_decl.init);
-            success &= check_assign_types(a, ast->var_decl.assign_tok, type, ast->var_decl.init);
+            success &= check_assign_types(a, ast->var_decl.assign_tok, type, &ast->var_decl.init);
 
             return success;
         }
