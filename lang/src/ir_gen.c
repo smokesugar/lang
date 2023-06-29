@@ -66,7 +66,7 @@ internal IROperand allocation_operand(IRAllocation* allocation) {
 }
 
 internal IRReg gen(G* g, AST* ast) {
-    static_assert(NUM_AST_KINDS == 17, "not all ast kinds handled");
+    static_assert(NUM_AST_KINDS == 18, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
@@ -86,6 +86,10 @@ internal IRReg gen(G* g, AST* ast) {
             instr->load.dest = new_reg(g);
             emit(g, instr);
             return instr->load.dest;
+        }
+
+        case AST_CAST: {
+            return gen(g, ast->cast.expr);
         }
 
         case AST_ADD:

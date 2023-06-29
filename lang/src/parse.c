@@ -7,7 +7,7 @@ typedef struct {
     Lexer* l;
 } P;
 
-internal AST* new_ast(Arena* arena, ASTKind kind, Token tok) {
+AST* new_ast(Arena* arena, ASTKind kind, Token tok) {
     assert(kind);
     AST* ast = arena_push_type(arena, AST);
     ast->kind = kind;
@@ -219,6 +219,11 @@ internal AST* parse_stmt(P* p, AST* parent_block) {
             }
 
             REQUIRE(':', ":");
+
+            Token type_name = lex_peek(p->l);
+            REQUIRE(TOK_IDENT, "a type");
+
+            Token assign_tok = lex_peek(p->l);
             REQUIRE('=', "=");
 
             AST* init = parse_expr(p);
@@ -228,6 +233,8 @@ internal AST* parse_stmt(P* p, AST* parent_block) {
 
             AST* node = new_ast(p->arena, AST_VAR_DECL, tok);
             node->var_decl.name = tok;
+            node->var_decl.type_name = type_name;
+            node->var_decl.assign_tok= assign_tok;
             node->var_decl.init = init;
 
             parent_block->block.num_locals++;

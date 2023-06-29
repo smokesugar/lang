@@ -13,7 +13,7 @@ typedef enum {
 
     IR_STORE,
     IR_LOAD,
-    
+
     IR_ADD,
     IR_SUB,
     IR_MUL,

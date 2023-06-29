@@ -98,7 +98,9 @@ int main() {
     AST* ast = parse(&arena, src);
     if (!ast) return 1;
 
-    if (!sem_ast(&arena, src, ast)) return 1;
+    Program prog = program_init(&arena);
+
+    if (!sem_ast(&arena, src, &prog, ast)) return 1;
 
     IR ir = ir_gen(&arena, ast);
     optimize(&ir);
