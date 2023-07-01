@@ -246,6 +246,8 @@ internal bool sem(A* a, Scope* scope, AST* ast) {
             else {
                 ast->type = left->type;
             }
+
+            assert(left->type == right->type);
             
             return success;
         }

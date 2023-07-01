@@ -129,4 +129,3 @@ typedef struct {
 
 void print_ir(IR* ir);
 void remove_ir_instr(IR* ir, IRInstr* instr);
-
