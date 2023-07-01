@@ -44,7 +44,15 @@ inline void* arena_push_clear(Arena* arena, size_t size) {
     return ptr;
 }
 
-#define arena_push_array(arena, type, count) (type*)arena_push_clear(arena, count * sizeof(type))
+inline void arena_realloc(Arena* arena, void* ptr, size_t size) {
+    if (ptr) {
+        size_t base = (u8*)ptr - (u8*)arena->ptr;
+        assert(base + size <= arena->used);
+        arena->used = base + size;
+    }
+}
+
+#define arena_push_array(arena, type, count) (type*)arena_push_clear((arena), (count) * sizeof(type))
 #define arena_push_type(arena, type) arena_push_array(arena, type, 1)
 
 // From https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function

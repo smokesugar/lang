@@ -59,9 +59,6 @@ struct IRBasicBlock {
     IRBasicBlock* next;
     struct IRInstr* start;
     u32 len;
-
-    u32 succ_count;
-    IRBasicBlock* succ[2];
 };
 
 typedef u32 IRReg;
