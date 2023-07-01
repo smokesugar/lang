@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "ir_gen.h"
 
 typedef struct {
@@ -305,6 +307,36 @@ IR ir_gen(Arena* arena, AST* ast) {
     for (IRInstr* instr = instr_head.next; instr; instr = instr->next) {
         instr->prev = prev;
         prev = instr;
+    }
+
+    for (IRBasicBlock* b = block_head.next; b; b = b->next) {
+        if (b->len > 0)
+        {
+            IRInstr* last_instr = b->start;
+            for (u32 i = 1; i < b->len; ++i)
+                last_instr = last_instr->next;
+
+            switch (last_instr->op) {
+                default:
+                    if (last_instr->next)
+                        b->succ[b->succ_count++] = last_instr->next->block;
+                    break;
+
+                case IR_OP_RET:
+                    break;
+                case IR_OP_JMP:
+                    b->succ[b->succ_count++] = last_instr->jmp_loc;
+                    break;
+                case IR_OP_BRANCH:
+                    b->succ[b->succ_count++] = last_instr->branch.then_loc;
+                    b->succ[b->succ_count++] = last_instr->branch.els_loc;
+                    break;
+            }
+        }
+        else {
+            if (b->start)
+                b->succ[b->succ_count++] = b->start->block;
+        }
     }
 
     return (IR) {

@@ -36,6 +36,15 @@ internal RegData* get_reg_data(RegDataTable* table, IRReg reg) {
     return 0;
 }
 
+internal RegDataTable make_reg_data_table(Arena* arena, u32 num_regs) {
+    u32 table_size = num_regs * 2;
+    return (RegDataTable) {
+        .size = table_size,
+        .keys = arena_push_array(arena, IRReg, table_size),
+        .vals = arena_push_array(arena, RegData, table_size)
+    };
+}
+
 internal void opt_value(RegDataTable* table, IRValue* value) {
     if (value->kind == IR_VALUE_REG) {
         RegData* data = get_reg_data(table, value->reg);
@@ -44,15 +53,10 @@ internal void opt_value(RegDataTable* table, IRValue* value) {
     }
 }
 
-void optimize(IR* ir) {
+internal void immediate_operands(IR* ir) {
     Scratch scratch = get_scratch(0, 0);
 
-    u32 table_size = (u32)ir->num_regs * 2;
-    RegDataTable reg_table = {
-        .size = table_size,
-        .keys = arena_push_array(scratch.arena, IRReg, table_size),
-        .vals = arena_push_array(scratch.arena, RegData, table_size)
-    };
+    RegDataTable reg_table = make_reg_data_table(scratch.arena, ir->num_regs);
 
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
@@ -63,6 +67,7 @@ void optimize(IR* ir) {
                 data->flags |= FLAG_IS_IMM;
                 data->imm = instr->imm.val;
                 remove_ir_instr(ir, instr);
+                --ir->num_regs;
             } break;
 
             case IR_OP_LOAD:
@@ -107,4 +112,13 @@ void optimize(IR* ir) {
     }
 
     release_scratch(&scratch);
+}
+
+internal void mem2reg(IR* ir) {
+    (void)ir;
+}
+
+void optimize(IR* ir) {
+    immediate_operands(ir);
+    mem2reg(ir);
 }
