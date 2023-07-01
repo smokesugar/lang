@@ -6,8 +6,8 @@
         twenty = twenty + 1;
     }
 
-    twenty_one: i64 = twenty + 1;
-    smokey_number: i64 = twenty * twenty_one;
+    twenty_one: u64 = twenty + 1;
+    smokey_number: u64 = twenty * twenty_one;
 
     if 1 {
         return smokey_number;

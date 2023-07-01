@@ -65,6 +65,24 @@ internal IROperand allocation_operand(IRAllocation* allocation) {
     };
 }
 
+internal IRType get_first_class_type(Type* type) {
+    assert(type);
+    assert(type->flags & TYPE_IS_FIRST_CLASS);
+    switch (type->size) {
+        default:
+            assert(false);
+            return IR_TYPE_ILLEGAL;
+        case 1:
+            return IR_TYPE_I8;
+        case 2:
+            return IR_TYPE_I16;
+        case 4:
+            return IR_TYPE_I32;
+        case 8:
+            return IR_TYPE_I64;
+    }
+}
+
 internal IRReg gen(G* g, AST* ast) {
     static_assert(NUM_AST_KINDS == 18, "not all ast kinds handled");
     switch (ast->kind) {
@@ -74,6 +92,7 @@ internal IRReg gen(G* g, AST* ast) {
 
         case AST_INT: {
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_IMM);
+            instr->imm.type = get_first_class_type(ast->type);
             instr->imm.dest = new_reg(g);
             instr->imm.val = integer_operand(ast->int_val);
             emit(g, instr);
@@ -82,6 +101,7 @@ internal IRReg gen(G* g, AST* ast) {
 
         case AST_VAR: {
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_LOAD);
+            instr->load.type = get_first_class_type(ast->type);
             instr->load.loc = allocation_operand(ast->var.sym->allocation);
             instr->load.dest = new_reg(g);
             emit(g, instr);
@@ -89,7 +109,33 @@ internal IRReg gen(G* g, AST* ast) {
         }
 
         case AST_CAST: {
-            return gen(g, ast->cast.expr);
+            Type* a = ast->cast.expr->type;
+            Type* b = ast->type;
+
+            IRReg src = gen(g, ast->cast.expr);
+            IROpCode op = 0;
+
+            if (a->size > b->size) {
+                op = IR_OP_TRUNC;
+            }
+            else if (a->size == b->size) {
+                return src;
+            }
+            else if (b->flags & TYPE_IS_SIGNED) {
+                op = IR_OP_SEXT;
+            }
+            else {
+                op = IR_OP_ZEXT;
+            }
+
+            IRInstr* instr = new_ir_instr(g->arena, op);
+            instr->cast.type_src = get_first_class_type(a);
+            instr->cast.type_dest = get_first_class_type(b);
+            instr->cast.src = reg_operand(src);
+            instr->cast.dest = new_reg(g);
+            emit(g, instr);
+
+            return instr->cast.dest;
         }
 
         case AST_ADD:
@@ -130,6 +176,7 @@ internal IRReg gen(G* g, AST* ast) {
             }
 
             IRInstr* instr = new_ir_instr(g->arena, op);
+            instr->bin.type = get_first_class_type(ast->type);
             instr->bin.l = reg_operand(gen(g, ast->bin.l));
             instr->bin.r = reg_operand(gen(g, ast->bin.r));
             instr->bin.dest = new_reg(g);
@@ -144,6 +191,7 @@ internal IRReg gen(G* g, AST* ast) {
             IRReg result = gen(g, ast->bin.r);
 
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
+            instr->store.type = get_first_class_type(ast->type);
             instr->store.src = reg_operand(result);
             instr->store.loc = allocation_operand(ast->bin.l->var.sym->allocation);
             emit(g, instr);
@@ -158,7 +206,8 @@ internal IRReg gen(G* g, AST* ast) {
 
         case AST_RETURN: {
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_RET);
-            instr->ret_val = reg_operand(gen(g, ast->return_val));
+            instr->ret.type = get_first_class_type(ast->return_val->type);
+            instr->ret.val = reg_operand(gen(g, ast->return_val));
             emit(g, instr);
 
             place_block(g, new_ir_basic_block(g->arena));
@@ -171,6 +220,7 @@ internal IRReg gen(G* g, AST* ast) {
             ast->var_decl.sym->allocation = allocation;
 
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
+            instr->store.type = get_first_class_type(ast->var_decl.init->type);
             instr->store.src = reg_operand(gen(g, ast->var_decl.init));
             instr->store.loc = allocation_operand(allocation);
             emit(g, instr);
@@ -184,6 +234,7 @@ internal IRReg gen(G* g, AST* ast) {
             IRBasicBlock* end  = 0;
 
             IRInstr* br = new_ir_instr(g->arena, IR_OP_BRANCH);
+            br->branch.type = get_first_class_type(ast->conditional.cond->type);
             br->branch.cond = reg_operand(gen(g, ast->conditional.cond));
             br->branch.then_loc = then;
             br->branch.els_loc  = els;
@@ -216,6 +267,7 @@ internal IRReg gen(G* g, AST* ast) {
 
             place_block(g, start);
             IRInstr* br = new_ir_instr(g->arena, IR_OP_BRANCH);
+            br->branch.type = get_first_class_type(ast->conditional.cond->type);
             br->branch.cond = reg_operand(gen(g, ast->conditional.cond));
             br->branch.then_loc = body;
             br->branch.els_loc  = end;

@@ -6,7 +6,8 @@
 
 typedef enum {
     TYPE_DEFAULT,
-    TYPE_IS_SIGNED = BIT(1)
+    TYPE_IS_FIRST_CLASS = BIT(0),
+    TYPE_IS_SIGNED = BIT(1),
 } TypeFlags;
 
 typedef struct {

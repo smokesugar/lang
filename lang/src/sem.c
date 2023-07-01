@@ -1,17 +1,17 @@
 #include "sem.h"
 #include "core.h"
 
-Type ty_u8  = { .name = {.ptr = "u8",  .len = 2}, .size = 1 };
-Type ty_u16 = { .name = {.ptr = "u16", .len = 3}, .size = 2 }; 
-Type ty_u32 = { .name = {.ptr = "u32", .len = 3}, .size = 4 };
-Type ty_u64 = { .name = {.ptr = "u64", .len = 3}, .size = 8 };
+Type ty_u8  = { .name = {.ptr = "u8",  .len = 2}, .size = 1, .flags = TYPE_IS_FIRST_CLASS };
+Type ty_u16 = { .name = {.ptr = "u16", .len = 3}, .size = 2, .flags = TYPE_IS_FIRST_CLASS }; 
+Type ty_u32 = { .name = {.ptr = "u32", .len = 3}, .size = 4, .flags = TYPE_IS_FIRST_CLASS };
+Type ty_u64 = { .name = {.ptr = "u64", .len = 3}, .size = 8, .flags = TYPE_IS_FIRST_CLASS };
 
-Type ty_i8  = { .name = {.ptr = "i8",  .len = 2}, .size = 1, .flags = TYPE_IS_SIGNED };
-Type ty_i16 = { .name = {.ptr = "i16", .len = 3}, .size = 2, .flags = TYPE_IS_SIGNED }; 
-Type ty_i32 = { .name = {.ptr = "i32", .len = 3}, .size = 4, .flags = TYPE_IS_SIGNED };
-Type ty_i64 = { .name = {.ptr = "i64", .len = 3}, .size = 8, .flags = TYPE_IS_SIGNED };
+Type ty_i8  = { .name = {.ptr = "i8",  .len = 2}, .size = 1, .flags = TYPE_IS_FIRST_CLASS | TYPE_IS_SIGNED };
+Type ty_i16 = { .name = {.ptr = "i16", .len = 3}, .size = 2, .flags = TYPE_IS_FIRST_CLASS | TYPE_IS_SIGNED }; 
+Type ty_i32 = { .name = {.ptr = "i32", .len = 3}, .size = 4, .flags = TYPE_IS_FIRST_CLASS | TYPE_IS_SIGNED };
+Type ty_i64 = { .name = {.ptr = "i64", .len = 3}, .size = 8, .flags = TYPE_IS_FIRST_CLASS | TYPE_IS_SIGNED };
 
-Type ty_void = { .name = {.ptr = "void", .len = 4}, .size = 0 };
+Type ty_void = { .name = {.ptr = "void", .len = 4}, .size = 0, .flags = TYPE_IS_FIRST_CLASS };
 
 typedef struct {
     Arena* arena;

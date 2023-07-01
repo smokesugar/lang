@@ -25,6 +25,10 @@ typedef enum {
     IR_OP_STORE,
     IR_OP_LOAD,
 
+    IR_OP_SEXT,
+    IR_OP_ZEXT,
+    IR_OP_TRUNC,
+
     IR_OP_ADD,
     IR_OP_SUB,
     IR_OP_MUL,
@@ -76,29 +80,43 @@ struct IRInstr {
     IRBasicBlock* block;
     union {
         struct {
+            IRType type;
             IRReg dest;
             IROperand val; 
         } imm;
         struct {
+            IRType type;
             IRReg dest;
             IROperand l;
             IROperand r;
         } bin;
         struct {
+            IRType type;
             IRReg dest;
             IROperand loc;
         } load;
         struct {
+            IRType type;
             IROperand loc;
             IROperand src;
         } store;
+        struct {
+            IRType type_src;
+            IRType type_dest;
+            IRReg dest;
+            IROperand src;
+        } cast;
         IRBasicBlock* jmp_loc;
         struct {
+            IRType type;
             IROperand cond;
             IRBasicBlock* then_loc;
             IRBasicBlock* els_loc;
         } branch;
-        IROperand ret_val;
+        struct {
+            IRType type;
+            IROperand val;
+        } ret;
     };
 };
 

@@ -44,7 +44,7 @@ void optimize(IR* ir) {
 
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
-        static_assert(NUM_IR_OPS == 15, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 18, "not all ir ops handled");
         switch (instr->op) {
             case IR_OP_IMM: {
                 RegData* data = get_reg_data(reg_keys, reg_data, table_size, instr->imm.dest);
@@ -62,6 +62,12 @@ void optimize(IR* ir) {
                 opt_operand(reg_keys, reg_data, table_size, &instr->store.src);
                 break;
 
+            case IR_OP_SEXT:
+            case IR_OP_ZEXT:
+            case IR_OP_TRUNC:
+                opt_operand(reg_keys, reg_data, table_size, &instr->cast.src);
+                break;
+
             case IR_OP_ADD:
             case IR_OP_SUB:
             case IR_OP_MUL:
@@ -76,7 +82,7 @@ void optimize(IR* ir) {
             } break;
 
             case IR_OP_RET: {
-                opt_operand(reg_keys, reg_data, table_size, &instr->ret_val);
+                opt_operand(reg_keys, reg_data, table_size, &instr->ret.val);
             } break;
 
             case IR_OP_JMP: {

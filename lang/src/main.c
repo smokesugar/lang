@@ -110,7 +110,7 @@ int main() {
     i64 regs[512];
 
     for (IRInstr* instr = ir.first_instr; instr;) {
-        static_assert(NUM_IR_OPS == 15, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 18, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
@@ -125,6 +125,12 @@ int main() {
                 break;
             case IR_OP_STORE:
                 *operand_addr(instr->store.loc) = operand_val(regs, instr->store.src);
+                break;
+
+            case IR_OP_SEXT:
+            case IR_OP_ZEXT:
+            case IR_OP_TRUNC:
+                regs[instr->cast.dest] = operand_val(regs, instr->cast.src);
                 break;
                 
             case IR_OP_ADD:
@@ -153,7 +159,7 @@ int main() {
                 break;
 
             case IR_OP_RET:
-                printf("Result: %lld\n", operand_val(regs, instr->ret_val));
+                printf("Result: %lld\n", operand_val(regs, instr->ret.val));
                 return 0;
 
             case IR_OP_JMP:
