@@ -47,11 +47,11 @@ typedef enum {
 } IROpCode;
 
 typedef enum {
-    IR_OPERAND_ILLEGAL,
-    IR_OPERAND_REG,
-    IR_OPERAND_INTEGER,
-    IR_OPERAND_ALLOCATION,
-} IROperandKind;
+    IR_VALUE_ILLEGAL,
+    IR_VALUE_REG,
+    IR_VALUE_INTEGER,
+    IR_VALUE_ALLOCATION,
+} IRValueKind;
 
 typedef struct IRBasicBlock IRBasicBlock;
 struct IRBasicBlock {
@@ -64,13 +64,13 @@ struct IRBasicBlock {
 typedef u32 IRReg;
 
 typedef struct {
-    IROperandKind kind;
+    IRValueKind kind;
     union {
         IRReg reg;
         u64 integer;
         IRAllocation* allocation;
     };
-} IROperand;
+} IRValue;
 
 typedef struct IRInstr IRInstr;
 struct IRInstr {
@@ -82,40 +82,40 @@ struct IRInstr {
         struct {
             IRType type;
             IRReg dest;
-            IROperand val; 
+            IRValue val; 
         } imm;
         struct {
             IRType type;
             IRReg dest;
-            IROperand l;
-            IROperand r;
+            IRValue l;
+            IRValue r;
         } bin;
         struct {
             IRType type;
             IRReg dest;
-            IROperand loc;
+            IRValue loc;
         } load;
         struct {
             IRType type;
-            IROperand loc;
-            IROperand src;
+            IRValue loc;
+            IRValue src;
         } store;
         struct {
             IRType type_src;
             IRType type_dest;
             IRReg dest;
-            IROperand src;
+            IRValue src;
         } cast;
         IRBasicBlock* jmp_loc;
         struct {
             IRType type;
-            IROperand cond;
+            IRValue cond;
             IRBasicBlock* then_loc;
             IRBasicBlock* els_loc;
         } branch;
         struct {
             IRType type;
-            IROperand val;
+            IRValue val;
         } ret;
     };
 };

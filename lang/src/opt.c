@@ -8,7 +8,7 @@ enum {
 
 typedef struct {
     u32 flags;
-    IROperand imm;
+    IRValue imm;
 } RegData;
 
 internal RegData* get_reg_data(IRReg* keys, RegData* vals, u32 table_size, IRReg reg) {
@@ -26,11 +26,11 @@ internal RegData* get_reg_data(IRReg* keys, RegData* vals, u32 table_size, IRReg
     return 0;
 }
 
-internal void opt_operand(IRReg* keys, RegData* vals, u32 table_size, IROperand* operand) {
-    if (operand->kind == IR_OPERAND_REG) {
-        RegData* data = get_reg_data(keys, vals, table_size, operand->reg);
+internal void opt_value(IRReg* keys, RegData* vals, u32 table_size, IRValue* value) {
+    if (value->kind == IR_VALUE_REG) {
+        RegData* data = get_reg_data(keys, vals, table_size, value->reg);
         if (data->flags & FLAG_IS_IMM)
-           *operand = data->imm;
+           *value = data->imm;
     }
 }
 
@@ -54,18 +54,18 @@ void optimize(IR* ir) {
             } break;
 
             case IR_OP_LOAD:
-                opt_operand(reg_keys, reg_data, table_size, &instr->load.loc);
+                opt_value(reg_keys, reg_data, table_size, &instr->load.loc);
                 break;
 
             case IR_OP_STORE:
-                opt_operand(reg_keys, reg_data, table_size, &instr->store.loc);
-                opt_operand(reg_keys, reg_data, table_size, &instr->store.src);
+                opt_value(reg_keys, reg_data, table_size, &instr->store.loc);
+                opt_value(reg_keys, reg_data, table_size, &instr->store.src);
                 break;
 
             case IR_OP_SEXT:
             case IR_OP_ZEXT:
             case IR_OP_TRUNC:
-                opt_operand(reg_keys, reg_data, table_size, &instr->cast.src);
+                opt_value(reg_keys, reg_data, table_size, &instr->cast.src);
                 break;
 
             case IR_OP_ADD:
@@ -77,19 +77,19 @@ void optimize(IR* ir) {
             case IR_OP_NEQUAL:
             case IR_OP_EQUAL:
             {
-                opt_operand(reg_keys, reg_data, table_size, &instr->bin.l);
-                opt_operand(reg_keys, reg_data, table_size, &instr->bin.r);
+                opt_value(reg_keys, reg_data, table_size, &instr->bin.l);
+                opt_value(reg_keys, reg_data, table_size, &instr->bin.r);
             } break;
 
             case IR_OP_RET: {
-                opt_operand(reg_keys, reg_data, table_size, &instr->ret.val);
+                opt_value(reg_keys, reg_data, table_size, &instr->ret.val);
             } break;
 
             case IR_OP_JMP: {
             } break;
 
             case IR_OP_BRANCH: {
-                opt_operand(reg_keys, reg_data, table_size, &instr->branch.cond);
+                opt_value(reg_keys, reg_data, table_size, &instr->branch.cond);
             } break;
         }
     }

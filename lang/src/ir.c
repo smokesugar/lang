@@ -6,19 +6,19 @@ internal void print_reg(IRReg reg) {
     printf("%%%lu", reg);
 }
 
-internal void print_operand(IROperand operand) {
-    switch (operand.kind) {
+internal void print_value(IRValue value) {
+    switch (value.kind) {
         default:
             assert(false);
             break;
-        case IR_OPERAND_REG:
-            print_reg(operand.reg);
+        case IR_VALUE_REG:
+            print_reg(value.reg);
             break;
-        case IR_OPERAND_INTEGER:
-            printf("%llu", operand.integer);
+        case IR_VALUE_INTEGER:
+            printf("%llu", value.integer);
             break;
-        case IR_OPERAND_ALLOCATION:
-            printf("[alloca %p]", operand.allocation);
+        case IR_VALUE_ALLOCATION:
+            printf("[alloca %p]", value.allocation);
             break;
     }
 }
@@ -56,7 +56,7 @@ void print_ir(IR* ir) {
                 printf("  ");
                 print_reg(instr->imm.dest);
                 printf(" = imm %s ", get_type_name(instr->imm.type));
-                print_operand(instr->imm.val);
+                print_value(instr->imm.val);
                 printf("\n");
                 break;
 
@@ -64,15 +64,15 @@ void print_ir(IR* ir) {
                 printf("  ");
                 print_reg(instr->load.dest);
                 printf(" = load %s ", get_type_name(instr->load.type));
-                print_operand(instr->load.loc);
+                print_value(instr->load.loc);
                 printf("\n");
                 break;
             
             case IR_OP_STORE:
                 printf("  store %s ", get_type_name(instr->store.type));
-                print_operand(instr->store.loc);
+                print_value(instr->store.loc);
                 printf(", ");
-                print_operand(instr->store.src);
+                print_value(instr->store.src);
                 printf("\n");
                 break;
 
@@ -96,7 +96,7 @@ void print_ir(IR* ir) {
                 printf("  ");
                 print_reg(instr->cast.dest);
                 printf(" = %s %s ", name, get_type_name(instr->cast.type_src));
-                print_operand(instr->cast.src);
+                print_value(instr->cast.src);
                 printf(" to %s\n", get_type_name(instr->cast.type_dest));
             } break;
 
@@ -141,15 +141,15 @@ void print_ir(IR* ir) {
                 }
 
                 printf(" = %s %s ", op_str, get_type_name(instr->bin.type));
-                print_operand(instr->bin.l);
+                print_value(instr->bin.l);
                 printf(", ");
-                print_operand(instr->bin.r);
+                print_value(instr->bin.r);
                 printf("\n");
             } break;
 
             case IR_OP_RET:
                 printf("  ret %s ", get_type_name(instr->ret.type));
-                print_operand(instr->ret.val);
+                print_value(instr->ret.val);
                 printf("\n");
                 break;
 
@@ -159,7 +159,7 @@ void print_ir(IR* ir) {
 
             case IR_OP_BRANCH:
                 printf("  branch %s ", get_type_name(instr->branch.type));
-                print_operand(instr->branch.cond);
+                print_value(instr->branch.cond);
                 printf(", bb.%d, bb.%d\n", instr->branch.then_loc->id, instr->branch.els_loc->id);
                 break;
         }

@@ -42,28 +42,28 @@ void release_scratch(Scratch* scratch) {
     scratch->arena->used = scratch->used;
 }
 
-internal i64 operand_val(i64* regs, IROperand operand) {
-    switch (operand.kind) {
+internal i64 value_val(i64* regs, IRValue value) {
+    switch (value.kind) {
         default:
             assert(false);
             return 0;
 
-        case IR_OPERAND_REG:
-            return regs[operand.reg];
+        case IR_VALUE_REG:
+            return regs[value.reg];
 
-        case IR_OPERAND_INTEGER:
-            return operand.integer;
+        case IR_VALUE_INTEGER:
+            return value.integer;
     }
 }
 
-internal i64* operand_addr(IROperand operand) {
-    switch (operand.kind) {
+internal i64* value_addr(IRValue value) {
+    switch (value.kind) {
         default:
             assert(false);
             return 0;
 
-        case IR_OPERAND_ALLOCATION:
-            return &operand.allocation->_val;
+        case IR_VALUE_ALLOCATION:
+            return &value.allocation->_val;
     }
 }
 
@@ -117,49 +117,49 @@ int main() {
                 break;
 
             case IR_OP_IMM:
-                regs[instr->imm.dest] = operand_val(regs, instr->imm.val);
+                regs[instr->imm.dest] = value_val(regs, instr->imm.val);
                 break;
 
             case IR_OP_LOAD:
-                regs[instr->load.dest] = *operand_addr(instr->load.loc);
+                regs[instr->load.dest] = *value_addr(instr->load.loc);
                 break;
             case IR_OP_STORE:
-                *operand_addr(instr->store.loc) = operand_val(regs, instr->store.src);
+                *value_addr(instr->store.loc) = value_val(regs, instr->store.src);
                 break;
 
             case IR_OP_SEXT:
             case IR_OP_ZEXT:
             case IR_OP_TRUNC:
-                regs[instr->cast.dest] = operand_val(regs, instr->cast.src);
+                regs[instr->cast.dest] = value_val(regs, instr->cast.src);
                 break;
                 
             case IR_OP_ADD:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) + operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) + value_val(regs, instr->bin.r);
                 break;
             case IR_OP_SUB:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) - operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) - value_val(regs, instr->bin.r);
                 break;
             case IR_OP_MUL:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) * operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) * value_val(regs, instr->bin.r);
                 break;
             case IR_OP_DIV:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) / operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) / value_val(regs, instr->bin.r);
                 break;
             case IR_OP_LESS:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) < operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) < value_val(regs, instr->bin.r);
                 break;
             case IR_OP_LEQUAL:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) <= operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) <= value_val(regs, instr->bin.r);
                 break;
             case IR_OP_NEQUAL:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) != operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) != value_val(regs, instr->bin.r);
                 break;
             case IR_OP_EQUAL:
-                regs[instr->bin.dest] = operand_val(regs, instr->bin.l) == operand_val(regs, instr->bin.r);
+                regs[instr->bin.dest] = value_val(regs, instr->bin.l) == value_val(regs, instr->bin.r);
                 break;
 
             case IR_OP_RET:
-                printf("Result: %lld\n", operand_val(regs, instr->ret.val));
+                printf("Result: %lld\n", value_val(regs, instr->ret.val));
                 return 0;
 
             case IR_OP_JMP:
@@ -167,7 +167,7 @@ int main() {
                 continue;
 
             case IR_OP_BRANCH: {
-                IRBasicBlock* block = operand_val(regs, instr->branch.cond) ? instr->branch.then_loc : instr->branch.els_loc;
+                IRBasicBlock* block = value_val(regs, instr->branch.cond) ? instr->branch.then_loc : instr->branch.els_loc;
                 instr = block->start;
             } continue;
         }
