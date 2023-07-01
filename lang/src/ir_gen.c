@@ -311,5 +311,6 @@ IR ir_gen(Arena* arena, AST* ast) {
         .first_instr = instr_head.next,
         .first_block = block_head.next,
         .next_reg = g.next_reg,
+        .num_regs = g.next_reg-1
     };
 }

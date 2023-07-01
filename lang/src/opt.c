@@ -11,24 +11,34 @@ typedef struct {
     IRValue imm;
 } RegData;
 
-internal RegData* get_reg_data(IRReg* keys, RegData* vals, u32 table_size, IRReg reg) {
-    u32 index = fnv_1_a_hash(&reg, sizeof(reg)) % table_size;
+typedef struct {
+    u32 size;
+    IRReg* keys;
+    RegData* vals;
+} RegDataTable;
 
-    for (u32 i = 0; i < table_size; ++i) {
-        if (!keys[index] || keys[index] == reg) {
-            keys[index] = reg;
-            return vals + index;
+internal RegData* get_reg_data(RegDataTable* table, IRReg reg) {
+    u32 index = fnv_1_a_hash(&reg, sizeof(reg)) % table->size;
+
+    for (u32 i = 0; i < table->size; ++i)
+    {
+        if (!table->keys[index] ||
+             table->keys[index] == reg)
+        {
+            table->keys[index] = reg;
+            return table->vals + index;
         }
-        index = (index + 1) % table_size;
+
+        index = (index + 1) % table->size;
     }
 
     assert(false && "hash table is full");
     return 0;
 }
 
-internal void opt_value(IRReg* keys, RegData* vals, u32 table_size, IRValue* value) {
+internal void opt_value(RegDataTable* table, IRValue* value) {
     if (value->kind == IR_VALUE_REG) {
-        RegData* data = get_reg_data(keys, vals, table_size, value->reg);
+        RegData* data = get_reg_data(table, value->reg);
         if (data->flags & FLAG_IS_IMM)
            *value = data->imm;
     }
@@ -37,35 +47,37 @@ internal void opt_value(IRReg* keys, RegData* vals, u32 table_size, IRValue* val
 void optimize(IR* ir) {
     Scratch scratch = get_scratch(0, 0);
 
-    u32 table_size = ir->next_reg * 2;
-
-    IRReg* reg_keys = arena_push_array(scratch.arena, IRReg, table_size);
-    RegData* reg_data  = arena_push_array(scratch.arena, RegData, table_size);
+    u32 table_size = (u32)ir->num_regs * 2;
+    RegDataTable reg_table = {
+        .size = table_size,
+        .keys = arena_push_array(scratch.arena, IRReg, table_size),
+        .vals = arena_push_array(scratch.arena, RegData, table_size)
+    };
 
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
         static_assert(NUM_IR_OPS == 18, "not all ir ops handled");
         switch (instr->op) {
             case IR_OP_IMM: {
-                RegData* data = get_reg_data(reg_keys, reg_data, table_size, instr->imm.dest);
+                RegData* data = get_reg_data(&reg_table, instr->imm.dest);
                 data->flags |= FLAG_IS_IMM;
                 data->imm = instr->imm.val;
                 remove_ir_instr(ir, instr);
             } break;
 
             case IR_OP_LOAD:
-                opt_value(reg_keys, reg_data, table_size, &instr->load.loc);
+                opt_value(&reg_table, &instr->load.loc);
                 break;
 
             case IR_OP_STORE:
-                opt_value(reg_keys, reg_data, table_size, &instr->store.loc);
-                opt_value(reg_keys, reg_data, table_size, &instr->store.src);
+                opt_value(&reg_table, &instr->store.loc);
+                opt_value(&reg_table, &instr->store.src);
                 break;
 
             case IR_OP_SEXT:
             case IR_OP_ZEXT:
             case IR_OP_TRUNC:
-                opt_value(reg_keys, reg_data, table_size, &instr->cast.src);
+                opt_value(&reg_table, &instr->cast.src);
                 break;
 
             case IR_OP_ADD:
@@ -77,24 +89,22 @@ void optimize(IR* ir) {
             case IR_OP_NEQUAL:
             case IR_OP_EQUAL:
             {
-                opt_value(reg_keys, reg_data, table_size, &instr->bin.l);
-                opt_value(reg_keys, reg_data, table_size, &instr->bin.r);
+                opt_value(&reg_table, &instr->bin.l);
+                opt_value(&reg_table, &instr->bin.r);
             } break;
 
             case IR_OP_RET: {
-                opt_value(reg_keys, reg_data, table_size, &instr->ret.val);
+                opt_value(&reg_table, &instr->ret.val);
             } break;
 
             case IR_OP_JMP: {
             } break;
 
             case IR_OP_BRANCH: {
-                opt_value(reg_keys, reg_data, table_size, &instr->branch.cond);
+                opt_value(&reg_table, &instr->branch.cond);
             } break;
         }
     }
-
-    #undef FLAGS
 
     release_scratch(&scratch);
 }

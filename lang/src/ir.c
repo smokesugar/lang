@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "ir.h"
+#include "core.h"
 
 internal void print_reg(IRReg reg) {
     printf("%%%lu", reg);

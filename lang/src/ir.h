@@ -124,7 +124,9 @@ typedef struct {
     IRInstr* first_instr;
     IRBasicBlock* first_block;
     IRReg next_reg;
+    IRReg num_regs;
 } IR;
 
 void print_ir(IR* ir);
 void remove_ir_instr(IR* ir, IRInstr* instr);
+
