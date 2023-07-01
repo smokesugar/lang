@@ -33,9 +33,9 @@ void print_ir(IR* ir) {
             }
         }
 
-        static_assert(NUM_IR_KINDS == 15, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 15, "not all ir ops handled");
         switch (instr->op) {
-            case IR_IMM:
+            case IR_OP_IMM:
                 printf("  ");
                 print_reg(instr->imm.dest);
                 printf(" = imm ");
@@ -43,7 +43,7 @@ void print_ir(IR* ir) {
                 printf("\n");
                 break;
 
-            case IR_LOAD:
+            case IR_OP_LOAD:
                 printf("  ");
                 print_reg(instr->load.dest);
                 printf(" = load ");
@@ -51,7 +51,7 @@ void print_ir(IR* ir) {
                 printf("\n");
                 break;
             
-            case IR_STORE:
+            case IR_OP_STORE:
                 printf("  store ");
                 print_operand(instr->store.loc);
                 printf(", ");
@@ -59,42 +59,42 @@ void print_ir(IR* ir) {
                 printf("\n");
                 break;
 
-            case IR_ADD:
-            case IR_SUB:
-            case IR_MUL:
-            case IR_DIV:
-            case IR_LESS:
-            case IR_LEQUAL:
-            case IR_NEQUAL:
-            case IR_EQUAL:
+            case IR_OP_ADD:
+            case IR_OP_SUB:
+            case IR_OP_MUL:
+            case IR_OP_DIV:
+            case IR_OP_LESS:
+            case IR_OP_LEQUAL:
+            case IR_OP_NEQUAL:
+            case IR_OP_EQUAL:
             {
                 printf("  ");
                 print_reg(instr->bin.dest);
 
                 char* op_str = 0;
                 switch (instr->op) {
-                    case IR_ADD:
+                    case IR_OP_ADD:
                         op_str = "add";
                         break;
-                    case IR_SUB:
+                    case IR_OP_SUB:
                         op_str = "sub";
                         break;
-                    case IR_MUL:
+                    case IR_OP_MUL:
                         op_str = "mul";
                         break;
-                    case IR_DIV:
+                    case IR_OP_DIV:
                         op_str = "div";
                         break;
-                    case IR_LESS:
+                    case IR_OP_LESS:
                         op_str = "cmp lt";
                         break;
-                    case IR_LEQUAL:
+                    case IR_OP_LEQUAL:
                         op_str = "cmp le";
                         break;
-                    case IR_NEQUAL:
+                    case IR_OP_NEQUAL:
                         op_str = "cmp ne";
                         break;
-                    case IR_EQUAL:
+                    case IR_OP_EQUAL:
                         op_str = "cmp eq";
                         break;
                 }
@@ -106,17 +106,17 @@ void print_ir(IR* ir) {
                 printf("\n");
             } break;
 
-            case IR_RET:
+            case IR_OP_RET:
                 printf("  ret ");
                 print_operand(instr->ret_val);
                 printf("\n");
                 break;
 
-            case IR_JMP:
+            case IR_OP_JMP:
                 printf("  jmp bb.%d\n", instr->jmp_loc->id);
                 break;
 
-            case IR_BRANCH:
+            case IR_OP_BRANCH:
                 printf("  branch ");
                 print_operand(instr->branch.cond);
                 printf(", bb.%d, bb.%d\n", instr->branch.then_loc->id, instr->branch.els_loc->id);

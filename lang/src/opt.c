@@ -44,45 +44,45 @@ void optimize(IR* ir) {
 
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
-        static_assert(NUM_IR_KINDS == 15, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 15, "not all ir ops handled");
         switch (instr->op) {
-            case IR_IMM: {
+            case IR_OP_IMM: {
                 RegData* data = get_reg_data(reg_keys, reg_data, table_size, instr->imm.dest);
                 data->flags |= FLAG_IS_IMM;
                 data->imm = instr->imm.val;
                 remove_ir_instr(ir, instr);
             } break;
 
-            case IR_LOAD:
+            case IR_OP_LOAD:
                 opt_operand(reg_keys, reg_data, table_size, &instr->load.loc);
                 break;
 
-            case IR_STORE:
+            case IR_OP_STORE:
                 opt_operand(reg_keys, reg_data, table_size, &instr->store.loc);
                 opt_operand(reg_keys, reg_data, table_size, &instr->store.src);
                 break;
 
-            case IR_ADD:
-            case IR_SUB:
-            case IR_MUL:
-            case IR_DIV:
-            case IR_LESS:
-            case IR_LEQUAL:
-            case IR_NEQUAL:
-            case IR_EQUAL:
+            case IR_OP_ADD:
+            case IR_OP_SUB:
+            case IR_OP_MUL:
+            case IR_OP_DIV:
+            case IR_OP_LESS:
+            case IR_OP_LEQUAL:
+            case IR_OP_NEQUAL:
+            case IR_OP_EQUAL:
             {
                 opt_operand(reg_keys, reg_data, table_size, &instr->bin.l);
                 opt_operand(reg_keys, reg_data, table_size, &instr->bin.r);
             } break;
 
-            case IR_RET: {
+            case IR_OP_RET: {
                 opt_operand(reg_keys, reg_data, table_size, &instr->ret_val);
             } break;
 
-            case IR_JMP: {
+            case IR_OP_JMP: {
             } break;
 
-            case IR_BRANCH: {
+            case IR_OP_BRANCH: {
                 opt_operand(reg_keys, reg_data, table_size, &instr->branch.cond);
             } break;
         }

@@ -110,57 +110,57 @@ int main() {
     i64 regs[512];
 
     for (IRInstr* instr = ir.first_instr; instr;) {
-        static_assert(NUM_IR_KINDS == 15, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 15, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
                 break;
 
-            case IR_IMM:
+            case IR_OP_IMM:
                 regs[instr->imm.dest] = operand_val(regs, instr->imm.val);
                 break;
 
-            case IR_LOAD:
+            case IR_OP_LOAD:
                 regs[instr->load.dest] = *operand_addr(instr->load.loc);
                 break;
-            case IR_STORE:
+            case IR_OP_STORE:
                 *operand_addr(instr->store.loc) = operand_val(regs, instr->store.src);
                 break;
                 
-            case IR_ADD:
+            case IR_OP_ADD:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) + operand_val(regs, instr->bin.r);
                 break;
-            case IR_SUB:
+            case IR_OP_SUB:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) - operand_val(regs, instr->bin.r);
                 break;
-            case IR_MUL:
+            case IR_OP_MUL:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) * operand_val(regs, instr->bin.r);
                 break;
-            case IR_DIV:
+            case IR_OP_DIV:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) / operand_val(regs, instr->bin.r);
                 break;
-            case IR_LESS:
+            case IR_OP_LESS:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) < operand_val(regs, instr->bin.r);
                 break;
-            case IR_LEQUAL:
+            case IR_OP_LEQUAL:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) <= operand_val(regs, instr->bin.r);
                 break;
-            case IR_NEQUAL:
+            case IR_OP_NEQUAL:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) != operand_val(regs, instr->bin.r);
                 break;
-            case IR_EQUAL:
+            case IR_OP_EQUAL:
                 regs[instr->bin.dest] = operand_val(regs, instr->bin.l) == operand_val(regs, instr->bin.r);
                 break;
 
-            case IR_RET:
+            case IR_OP_RET:
                 printf("Result: %lld\n", operand_val(regs, instr->ret_val));
                 return 0;
 
-            case IR_JMP:
+            case IR_OP_JMP:
                 instr = instr->jmp_loc->start;
                 continue;
 
-            case IR_BRANCH: {
+            case IR_OP_BRANCH: {
                 IRBasicBlock* block = operand_val(regs, instr->branch.cond) ? instr->branch.then_loc : instr->branch.els_loc;
                 instr = block->start;
             } continue;

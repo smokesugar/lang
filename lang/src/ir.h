@@ -7,28 +7,39 @@ typedef struct {
 } IRAllocation;
 
 typedef enum {
-    IR_ILLEGAL,
+    IR_TYPE_ILLEGAL,
 
-    IR_IMM,
+    IR_TYPE_I8,
+    IR_TYPE_I16,
+    IR_TYPE_I32,
+    IR_TYPE_I64,
 
-    IR_STORE,
-    IR_LOAD,
+    NUM_IR_TYPES
+} IRType;
 
-    IR_ADD,
-    IR_SUB,
-    IR_MUL,
-    IR_DIV,
+typedef enum {
+    IR_OP_ILLEGAL,
 
-    IR_LESS,
-    IR_LEQUAL,
-    IR_NEQUAL,
-    IR_EQUAL,
+    IR_OP_IMM,
 
-    IR_RET,
-    IR_JMP,
-    IR_BRANCH,
+    IR_OP_STORE,
+    IR_OP_LOAD,
 
-    NUM_IR_KINDS
+    IR_OP_ADD,
+    IR_OP_SUB,
+    IR_OP_MUL,
+    IR_OP_DIV,
+
+    IR_OP_LESS,
+    IR_OP_LEQUAL,
+    IR_OP_NEQUAL,
+    IR_OP_EQUAL,
+
+    IR_OP_RET,
+    IR_OP_JMP,
+    IR_OP_BRANCH,
+
+    NUM_IR_OPS
 } IROpCode;
 
 typedef enum {

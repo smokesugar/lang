@@ -73,7 +73,7 @@ internal IRReg gen(G* g, AST* ast) {
             return 0;
 
         case AST_INT: {
-            IRInstr* instr = new_ir_instr(g->arena, IR_IMM);
+            IRInstr* instr = new_ir_instr(g->arena, IR_OP_IMM);
             instr->imm.dest = new_reg(g);
             instr->imm.val = integer_operand(ast->int_val);
             emit(g, instr);
@@ -81,7 +81,7 @@ internal IRReg gen(G* g, AST* ast) {
         }
 
         case AST_VAR: {
-            IRInstr* instr = new_ir_instr(g->arena, IR_LOAD);
+            IRInstr* instr = new_ir_instr(g->arena, IR_OP_LOAD);
             instr->load.loc = allocation_operand(ast->var.sym->allocation);
             instr->load.dest = new_reg(g);
             emit(g, instr);
@@ -101,31 +101,31 @@ internal IRReg gen(G* g, AST* ast) {
         case AST_NEQUAL:
         case AST_EQUAL:
         {
-            IROpCode op = IR_ILLEGAL;
+            IROpCode op = IR_OP_ILLEGAL;
             switch (ast->kind) {
                 case AST_ADD:
-                    op = IR_ADD;
+                    op = IR_OP_ADD;
                     break;
                 case AST_SUB:
-                    op = IR_SUB;
+                    op = IR_OP_SUB;
                     break;
                 case AST_MUL:
-                    op = IR_MUL;
+                    op = IR_OP_MUL;
                     break;
                 case AST_DIV:
-                    op = IR_DIV;
+                    op = IR_OP_DIV;
                     break;
                 case AST_LESS:
-                    op = IR_LESS;
+                    op = IR_OP_LESS;
                     break;
                 case AST_LEQUAL:
-                    op = IR_LEQUAL;
+                    op = IR_OP_LEQUAL;
                     break;
                 case AST_NEQUAL:
-                    op = IR_NEQUAL;
+                    op = IR_OP_NEQUAL;
                     break;
                 case AST_EQUAL:
-                    op = IR_EQUAL;
+                    op = IR_OP_EQUAL;
                     break;
             }
 
@@ -143,7 +143,7 @@ internal IRReg gen(G* g, AST* ast) {
 
             IRReg result = gen(g, ast->bin.r);
 
-            IRInstr* instr = new_ir_instr(g->arena, IR_STORE);
+            IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
             instr->store.src = reg_operand(result);
             instr->store.loc = allocation_operand(ast->bin.l->var.sym->allocation);
             emit(g, instr);
@@ -157,7 +157,7 @@ internal IRReg gen(G* g, AST* ast) {
             return 0;
 
         case AST_RETURN: {
-            IRInstr* instr = new_ir_instr(g->arena, IR_RET);
+            IRInstr* instr = new_ir_instr(g->arena, IR_OP_RET);
             instr->ret_val = reg_operand(gen(g, ast->return_val));
             emit(g, instr);
 
@@ -170,7 +170,7 @@ internal IRReg gen(G* g, AST* ast) {
             IRAllocation* allocation = arena_push_type(g->arena, IRAllocation);
             ast->var_decl.sym->allocation = allocation;
 
-            IRInstr* instr = new_ir_instr(g->arena, IR_STORE);
+            IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
             instr->store.src = reg_operand(gen(g, ast->var_decl.init));
             instr->store.loc = allocation_operand(allocation);
             emit(g, instr);
@@ -183,7 +183,7 @@ internal IRReg gen(G* g, AST* ast) {
             IRBasicBlock* els  = new_ir_basic_block(g->arena);
             IRBasicBlock* end  = 0;
 
-            IRInstr* br = new_ir_instr(g->arena, IR_BRANCH);
+            IRInstr* br = new_ir_instr(g->arena, IR_OP_BRANCH);
             br->branch.cond = reg_operand(gen(g, ast->conditional.cond));
             br->branch.then_loc = then;
             br->branch.els_loc  = els;
@@ -194,7 +194,7 @@ internal IRReg gen(G* g, AST* ast) {
 
             if (ast->conditional.els) {
                 end = new_ir_basic_block(g->arena);
-                IRInstr* jmp = new_ir_instr(g->arena, IR_JMP);
+                IRInstr* jmp = new_ir_instr(g->arena, IR_OP_JMP);
                 jmp->jmp_loc = end;
                 emit(g, jmp);
             }
@@ -215,7 +215,7 @@ internal IRReg gen(G* g, AST* ast) {
             IRBasicBlock* end   = new_ir_basic_block(g->arena);
 
             place_block(g, start);
-            IRInstr* br = new_ir_instr(g->arena, IR_BRANCH);
+            IRInstr* br = new_ir_instr(g->arena, IR_OP_BRANCH);
             br->branch.cond = reg_operand(gen(g, ast->conditional.cond));
             br->branch.then_loc = body;
             br->branch.els_loc  = end;
@@ -224,7 +224,7 @@ internal IRReg gen(G* g, AST* ast) {
             place_block(g, body);
             gen(g, ast->conditional.then);
 
-            IRInstr* jmp = new_ir_instr(g->arena, IR_JMP);
+            IRInstr* jmp = new_ir_instr(g->arena, IR_OP_JMP);
             jmp->jmp_loc = start;
             emit(g, jmp);
 
