@@ -15,9 +15,9 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-#define BIT(x) (1 << x)
+#define BIT(x) (1 << (x))
 #define internal static
-#define LEN(x) (sizeof(x)/sizeof(x[0]))
+#define LEN(x) (sizeof(x)/sizeof((x)[0]))
 
 typedef struct {
     int len;
@@ -30,8 +30,10 @@ typedef struct {
     size_t used;
 } Arena;
 
+#define arena_pad_size(size) (((size) + 7) & ~7);
+
 inline void* arena_push(Arena* arena, size_t size) {
-    size = (size + 7) & ~7;
+    size = arena_pad_size(size);
     assert(arena->cap - arena->used >= size);
     void* ptr = (u8*)arena->ptr + arena->used;
     arena->used += size;
@@ -46,6 +48,7 @@ inline void* arena_push_clear(Arena* arena, size_t size) {
 
 inline void arena_realloc(Arena* arena, void* ptr, size_t size) {
     if (ptr) {
+        size = arena_pad_size(size);
         size_t base = (u8*)ptr - (u8*)arena->ptr;
         assert(base + size <= arena->used);
         arena->used = base + size;

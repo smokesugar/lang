@@ -1,0 +1,14 @@
+digraph G {
+  bb0 -> bb1
+  bb0 -> bb2
+  bb1 -> bb9
+  bb2 -> bb3
+  bb2 -> bb7
+  bb3 -> bb4
+  bb3 -> bb5
+  bb4 -> bb6
+  bb5 -> bb6
+  bb6 -> bb8
+  bb7 -> bb9
+  bb8 -> bb9
+}

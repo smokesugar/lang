@@ -25,7 +25,7 @@ internal IRBasicBlock* new_ir_basic_block(Arena* arena) {
 internal void emit(G* g, IRInstr* instr) {
     g->cur_instr = g->cur_instr->next = instr;
 
-    for (IRBasicBlock* b = g->first_block_to_be_placed; b; b = b->next)
+    FOREACH_IR_BB(b, g->first_block_to_be_placed)
         b->start = instr;
 
     g->cur_block->len++;
@@ -308,6 +308,9 @@ IR ir_gen(Arena* arena, AST* ast) {
         instr->prev = prev;
         prev = instr;
     }
+
+    FOREACH_IR_BB(b, block_head.next)
+        bb_update_end(b);
 
     return (IR) {
         .first_instr = instr_head.next,

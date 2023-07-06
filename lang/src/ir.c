@@ -3,6 +3,46 @@
 #include "ir.h"
 #include "core.h"
 
+BBList bb_get_succ(IRBasicBlock* block) {
+    BBList succ = { 0 };
+
+    if (block->len > 0) {
+        switch (block->end->op) {
+            default:
+                if (block->end->next)
+                    succ.data[succ.count++] = block->end->next->block;
+                break;
+            case IR_OP_RET:
+                break;
+            case IR_OP_BRANCH:
+                succ.data[succ.count++] = block->end->branch.then_loc;
+                succ.data[succ.count++] = block->end->branch.els_loc;
+                break;
+            case IR_OP_JMP:
+                succ.data[succ.count++] = block->end->jmp_loc;
+                break;
+        }
+    }
+    else {
+        if (block->start) {
+            succ.data[succ.count++] = block->start->block;
+        }
+    }
+
+    return succ;
+}
+
+void bb_update_end(IRBasicBlock* block) {
+    if (block->len > 0) {
+        block->end = block->start;
+        for (int i = 1; i < block->len; ++i)
+            block->end = block->end->next;
+    }
+    else {
+        block->end = 0;
+    }
+}
+
 internal void print_reg(IRReg reg) {
     printf("%%%lu", reg);
 }
@@ -45,7 +85,7 @@ void print_ir(IR* ir) {
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
         if (instr->block->start == instr) {
-            for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+            FOREACH_IR_BB(b, ir->first_block) {
                 if (b->start == instr)
                     printf("bb.%d:\n", b->id);
             }
@@ -166,7 +206,7 @@ void print_ir(IR* ir) {
         }
     }
 
-    for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+    FOREACH_IR_BB(b, ir->first_block) {
         if (!b->start)
             printf("bb.%d:\n", b->id);
     }
@@ -184,12 +224,36 @@ void remove_ir_instr(IR* ir, IRInstr* instr) {
         instr->next->prev = instr->prev;
     
     if (instr->block->start == instr) {
-        for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+        FOREACH_IR_BB(b, ir->first_block) {
             if (b->start == instr) {
+                assert(b == instr->block || b->len == 0);
                 b->start = instr->next;
             }
         }
     }
 
     instr->block->len--;
+    bb_update_end(instr->block);
+}
+
+void output_cfg_graphviz(IR* ir, char* path) {
+    (void)ir;
+    
+    FILE* file;
+    if (fopen_s(&file, path, "w")) {
+        assert(false);
+    }
+
+    fprintf(file, "digraph G {\n");
+
+    FOREACH_IR_BB(b, ir->first_block) {
+        BBList succ = bb_get_succ(b);
+        for (int i = 0; i < succ.count; ++i) {
+            fprintf(file, "  bb%d -> bb%d\n", b->id, succ.data[i]->id);
+        }
+    }
+
+    fprintf(file, "}\n");
+
+    fclose(file);
 }

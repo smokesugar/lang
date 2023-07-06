@@ -58,7 +58,8 @@ struct IRBasicBlock {
     int id;
     IRBasicBlock* next;
     struct IRInstr* start;
-    u32 len;
+    struct IRInstr* end;
+    int len;
 };
 
 typedef u32 IRReg;
@@ -127,5 +128,17 @@ typedef struct {
     IRReg num_regs;
 } IR;
 
+typedef struct {
+    int count;
+    IRBasicBlock* data[2];
+} BBList;
+
+BBList bb_get_succ(IRBasicBlock* block);
+
+void bb_update_end(IRBasicBlock* block);
+
 void print_ir(IR* ir);
 void remove_ir_instr(IR* ir, IRInstr* instr);
+void output_cfg_graphviz(IR* ir, char* path);
+
+#define FOREACH_IR_BB(name, head) for (IRBasicBlock* name = (head); name; name = name->next)

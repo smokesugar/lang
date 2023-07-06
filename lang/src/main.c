@@ -105,6 +105,8 @@ int main() {
     IR ir = ir_gen(&arena, ast);
     optimize(&ir);
 
+    output_cfg_graphviz(&ir, "graph.txt");
+
     print_ir(&ir);
 
     i64 regs[512];

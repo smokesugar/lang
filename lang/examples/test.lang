@@ -1,20 +1,15 @@
 {
-    chungus: i16 = 2;
-    twenty: i16 = chungus + 1 * 2;
-
-    while twenty < 20 {
-        twenty = twenty + 1;
-    }
-
-    twenty_one: i32 = twenty + 1;
-    smokey_number: u64 = twenty * twenty_one;
-
     if 1 {
-        return smokey_number;
     }
     else {
-        return 69;
+        if 1 {
+            if 0 {
+            } else {
+            }
+        }
+        else {
+        }
     }
 
-    return 4;
+    return 3;
 }

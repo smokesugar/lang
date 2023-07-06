@@ -123,15 +123,15 @@ typedef struct {
     int count;
 } PostOrder;
 
-internal IRBasicBlock* intersect(IRBasicBlock** doms, PostOrder* po, IRBasicBlock* b1, IRBasicBlock* b2) {
+internal IRBasicBlock* first_common_dominator(IRBasicBlock** idom, PostOrder* po, IRBasicBlock* b1, IRBasicBlock* b2) {
     int f1 = po->indices[b1->id];
     int f2 = po->indices[b2->id];
 
     while (f1 != f2) {
         while (f1 < f2)
-            f1 = po->indices[doms[po->order[f1]->id]->id];
+            f1 = po->indices[idom[po->order[f1]->id]->id];
         while (f2 < f1)
-            f2 = po->indices[doms[po->order[f2]->id]->id];
+            f2 = po->indices[idom[po->order[f2]->id]->id];
     }
 
     return po->order[f1];
@@ -142,95 +142,55 @@ internal void get_post_order(PostOrder* po, IRBasicBlock* b) {
         return;
     po->traversed[b->id] = true;
 
-    if (b->len > 0) {
-        IRInstr* last_instr = b->start;
-        for (u32 i = 1; i < b->len; ++i)
-            last_instr = last_instr->next;
-
-        switch (last_instr->op) {
-            default:
-                if (last_instr->next)
-                    get_post_order(po, last_instr->next->block);
-                break;
-            case IR_OP_RET:
-                break;
-            case IR_OP_BRANCH:
-                get_post_order(po, last_instr->branch.then_loc);
-                get_post_order(po, last_instr->branch.els_loc);
-                break;
-            case IR_OP_JMP:
-                get_post_order(po, last_instr->jmp_loc);
-                break;
-        }
-    }
-    else {
-        if (b->start)
-            get_post_order(po, b->start->block);
-    }
+    BBList succ = bb_get_succ( b);
+    for (int i = 0; i < succ.count; ++i)
+        get_post_order(po, succ.data[i]);
 
     int index = po->count++;
     po->order[index] = b;
     po->indices[b->id] = index;
 }
 
-typedef struct {
-    int count;
-    IRBasicBlock** ptr;
-} Preds;
+typedef struct BBNode BBNode;
+struct BBNode {
+    IRBasicBlock* b;
+    BBNode *l,  *r;
+};
 
-internal Preds get_preds(Arena* arena, IR* ir, int nblock, IRBasicBlock* block) {
-    IRBasicBlock** preds = arena_push_array(arena, IRBasicBlock*, nblock);
-    int count = 0;
-
-    for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
-        if (b->len > 0) {
-            IRInstr* last_instr = b->start;
-            for (u32 i = 1; i < b->len; ++i)
-                last_instr = last_instr->next;
-
-            switch (last_instr->op) {
-                default:
-                    if (last_instr->next && block == last_instr->next->block)
-                        preds[count++] = b;
-                    break;
-                case IR_OP_RET:
-                    break;
-                case IR_OP_BRANCH:
-                    if (block == last_instr->branch.then_loc)
-                        preds[count++] = b;
-                    else if (block == last_instr->branch.els_loc)
-                        preds[count++] = b;
-                    break;
-                case IR_OP_JMP:
-                    if (block == last_instr->jmp_loc)
-                        preds[count++] = b;
-                    break;
-            }
+internal void bb_set_insert(Arena* arena, BBNode** node, IRBasicBlock* b) {
+    if (!*node) {
+        BBNode* n = arena_push_type(arena, BBNode);
+        n->b = b;
+        *node = n;
+    }
+    else {
+        BBNode* n = *node;
+        if (b->id < n->b->id) {
+            bb_set_insert(arena, &n->l, b);
+        }
+        else if (b->id > n->b->id) {
+            bb_set_insert(arena, &n->r, b);
         }
         else {
-            if (b->start && block == b->start->block) {
-                preds[count++] = b;
-            }
+            assert(n->b == b);
         }
     }
+}
 
-    arena_realloc(arena, preds, count * sizeof(IRBasicBlock*));
-    if (count == 0)
-        preds = 0;
-    
-    return (Preds) {
-        .count = count,
-        .ptr = preds
-    };
+internal void bb_set_print(BBNode* root) {
+    if (root) {
+        bb_set_print(root->l);
+        printf("  bb.%d\n", root->b->id);
+        bb_set_print(root->r);
+    }
 }
 
 internal void mem2reg(IR* ir) {
     Scratch scratch = get_scratch(0, 0);
 
     int max_id = -1;
-    for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
+    FOREACH_IR_BB(b, ir->first_block)
         max_id = b->id > max_id ? b->id : max_id;
-    }
 
     assert(max_id >= 0);
     int nblock = max_id + 1;
@@ -243,13 +203,32 @@ internal void mem2reg(IR* ir) {
 
     get_post_order(&po, ir->first_block);
 
-    Preds* preds = arena_push_array(scratch.arena, Preds, nblock);
-    for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
-        preds[b->id] = get_preds(scratch.arena, ir, nblock, b);
+    int* pred_count = arena_push_array(scratch.arena, int, nblock);
+    IRBasicBlock*** pred = arena_push_array(scratch.arena, IRBasicBlock**, nblock);
+
+    FOREACH_IR_BB(b, ir->first_block) {
+        BBList succ = bb_get_succ(b);
+        for (int i = 0; i < succ.count; ++i) {
+            IRBasicBlock* s = succ.data[i];
+            pred_count[s->id]++;
+        }
     }
 
-    IRBasicBlock** doms = arena_push_array(scratch.arena, IRBasicBlock*, nblock);
-    doms[ir->first_block->id] = ir->first_block;
+    FOREACH_IR_BB(b, ir->first_block) {
+        pred[b->id] = arena_push_array(scratch.arena, IRBasicBlock*, pred_count[b->id]);
+        pred_count[b->id] = 0;
+    }
+
+    FOREACH_IR_BB(b, ir->first_block) {
+        BBList succ = bb_get_succ(b);
+        for (int i = 0; i < succ.count; ++i) {
+            IRBasicBlock* s = succ.data[i];
+            pred[s->id][pred_count[s->id]++] = b;
+        }
+    }
+
+    IRBasicBlock** idom = arena_push_array(scratch.arena, IRBasicBlock*, nblock);
+    idom[ir->first_block->id] = ir->first_block;
 
     for (;;) {
         bool changed = false;
@@ -260,17 +239,17 @@ internal void mem2reg(IR* ir) {
             if (b == ir->first_block)
                 continue;
 
-            IRBasicBlock* new_idom = preds[b->id].ptr[0];
+            IRBasicBlock* new_idom = pred[b->id][0];
 
-            for (int j = 1; j < preds[b->id].count; ++j)
+            for (int j = 1; j < pred_count[b->id]; ++j)
             {
-                IRBasicBlock* p = preds[b->id].ptr[j];
-                if (doms[p->id])
-                    new_idom = intersect(doms, &po, p, new_idom);
+                IRBasicBlock* p = pred[b->id][j];
+                if (idom[p->id])
+                    new_idom = first_common_dominator(idom, &po, p, new_idom);
             }
 
-            if (doms[b->id] != new_idom) {
-                doms[b->id] = new_idom;
+            if (idom[b->id] != new_idom) {
+                idom[b->id] = new_idom;
                 changed = true;
             }
         }
@@ -279,9 +258,40 @@ internal void mem2reg(IR* ir) {
             break;
     }
 
-    for (IRBasicBlock* b = ir->first_block; b; b = b->next) {
-        if (doms[b->id])
-            printf("bb.%d dominator: bb.%d\n", b->id, doms[b->id]->id);
+    idom[ir->first_block->id] = 0;
+
+    #if 0
+    FOREACH_IR_BB(b, ir->first_block) {
+        if (idom[b->id])
+            printf("bb.%d dominator: bb.%d\n", b->id, idom[b->id]->id);
+    }
+    printf("\n");
+    #endif
+
+    // Compute dominance frontiers
+    BBNode** df = arena_push_array(scratch.arena, BBNode*, nblock);
+    FOREACH_IR_BB(n, ir->first_block)
+    {
+        if (!idom[n->id] || pred_count[n->id] <= 1)
+            continue;
+
+        for (int i = 0; i < pred_count[n->id]; ++i)
+        {
+            IRBasicBlock* runner = pred[n->id][i];
+            while (runner && runner != idom[n->id])
+            {
+                if (!idom[runner->id])
+                    break;
+
+                bb_set_insert(scratch.arena, &df[runner->id], n);
+                runner = idom[runner->id];
+            }
+        }
+    }
+
+    FOREACH_IR_BB(b, ir->first_block) {
+        printf("DF bb.%d:\n", b->id);
+        bb_set_print(df[b->id]);
     }
     printf("\n");
 
