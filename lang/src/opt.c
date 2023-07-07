@@ -28,14 +28,14 @@ internal RegData* get_reg_data(RegDataTable* table, IRReg reg) {
              table->keys[index] == reg)
         {
             table->keys[index] = reg;
-            return table->vals + index;
+            break;
         }
 
         index = (index + 1) % table->size;
     }
 
-    assert(false && "hash table is full");
-    return 0;
+    assert(table->keys[index] == reg && "hash table is full");
+    return &table->vals[index];
 }
 
 internal RegDataTable make_reg_data_table(Arena* arena, u32 num_regs) {
@@ -151,42 +151,225 @@ internal void get_post_order(PostOrder* po, IRBasicBlock* b) {
     po->indices[b->id] = index;
 }
 
-typedef struct BBNode BBNode;
-struct BBNode {
-    IRBasicBlock* b;
-    BBNode *l,  *r;
+enum {
+    RBT_RED,
+    RBT_BLACK,
 };
 
-internal void bb_set_insert(Arena* arena, BBNode** node, IRBasicBlock* b) {
-    if (!*node) {
-        BBNode* n = arena_push_type(arena, BBNode);
-        n->b = b;
-        *node = n;
+typedef struct BBSetNode BBSetNode;
+struct BBSetNode {
+    u8 color;
+    IRBasicBlock* b;
+    BBSetNode *p, *l, *r;
+};
+
+internal void bb_set_right_rotate(BBSetNode** root, BBSetNode* n) {
+    BBSetNode* left = n->l;
+
+    n->l = left->r;
+    if (n->l)
+        n->l->p = n;
+
+    left->p = n->p;
+    if (!n->p) {
+        *root = left;
+    }
+    else if (n == n->p->l) {
+        n->p->l = left;
     }
     else {
-        BBNode* n = *node;
+        assert(n == n->p->r);
+        n->p->r = left;
+    }
+
+    left->r = n;
+    n->p = left;
+}
+
+internal void bb_set_left_rotate(BBSetNode** root, BBSetNode* n) {
+    BBSetNode* right = n->r;
+
+    n->r = right->l;
+    if (n->r)
+        n->r->p = n;
+
+    right->p = n->p;
+    if (!n->p) {
+        *root = right;
+    }
+    else if (n == n->p->l) {
+        n->p->l = right;
+    }
+    else {
+        assert(n == n->p->r);
+        n->p->r = right;
+    }
+
+    right->l = n;
+    n->p = right;
+}
+
+internal BBSetNode* bb_bst_insert(Arena* arena, BBSetNode** node, IRBasicBlock* b, BBSetNode* parent) {
+    if (!*node) {
+        BBSetNode* n = arena_push_type(arena, BBSetNode);
+        n->b = b;
+        n->p = parent;
+        *node = n;
+        return n;
+    }
+    else {
+        BBSetNode* n = *node;
         if (b->id < n->b->id) {
-            bb_set_insert(arena, &n->l, b);
+            return bb_bst_insert(arena, &n->l, b, n);
         }
         else if (b->id > n->b->id) {
-            bb_set_insert(arena, &n->r, b);
+            return bb_bst_insert(arena, &n->r, b, n);
         }
         else {
             assert(n->b == b);
+            return 0;
         }
     }
 }
 
-internal void bb_set_print(BBNode* root) {
-    if (root) {
-        bb_set_print(root->l);
-        printf("  bb.%d\n", root->b->id);
-        bb_set_print(root->r);
+internal void bb_set_swap_colors(BBSetNode* a, BBSetNode* b) {
+    u8 temp = a->color;
+    a->color = b->color;
+    b->color = temp;
+}
+
+internal void bb_set_repair(BBSetNode** root, BBSetNode* x) {
+    if (x == *root) {
+        x->color = RBT_BLACK;
+    }
+    else if (x->p->color != RBT_BLACK) {
+        BBSetNode* p = x->p;
+        BBSetNode* g = p->p;
+        BBSetNode* u = p == g->l ? g->r : g->l;
+
+        u8 u_color = u ? u->color : RBT_BLACK;
+
+        if (u_color == RBT_RED) {
+            p->color = RBT_BLACK;
+            u->color = RBT_BLACK;
+            g->color = RBT_RED;
+            bb_set_repair(root, g);
+        }
+        else {
+            bool left_a = p == g->l;
+            bool left_b = x == p->l;
+
+            if (left_a && left_b) {
+                bb_set_right_rotate(root, g);
+                bb_set_swap_colors(p, g);
+            }
+            else if (!left_a && !left_b) {
+                bb_set_left_rotate(root, g);
+                bb_set_swap_colors(p, g);
+            }
+            else if (left_a && !left_b) {
+                bb_set_left_rotate(root, p);
+                bb_set_right_rotate(root, g);
+                bb_set_swap_colors(g, x);
+            }
+            else if (!left_a && left_b) {
+                bb_set_right_rotate(root, p);
+                bb_set_left_rotate(root, g);
+                bb_set_swap_colors(g, x);
+            }
+        }
+    }
+}
+
+internal bool bb_set_insert(Arena* arena, BBSetNode** root, IRBasicBlock* b) {
+    assert(!(*root) || (*root)->color == RBT_BLACK);
+    BBSetNode* x = bb_bst_insert(arena, root, b, 0);
+    bb_set_repair(root, x);
+    return x != 0;
+}
+
+typedef struct {
+    BBSetNode* cur;
+    BBSetNode* right_most;
+    IRBasicBlock* val;
+} BBSetIter;
+
+internal void bb_set_next(BBSetIter* it) {
+    if (!it->cur) {
+        it->val = 0;
+        return;
+    }
+
+    if (!it->cur->l) {
+        it->val = it->cur->b;
+        it->cur = it->cur->r;
+    }
+    else {
+        it->right_most = it->cur->l;
+
+        while (it->right_most->r && it->right_most->r != it->cur)
+            it->right_most = it->right_most->r;
+
+        if (!it->right_most->r) {
+            it->right_most->r = it->cur;
+            it->cur = it->cur->l;
+            bb_set_next(it);
+        }
+        else {
+            it->right_most->r = 0; // Repair the tree
+            it->val = it->cur->b;
+            it->cur = it->cur->r;
+        }
+    }
+}
+
+internal BBSetIter bb_set_begin(BBSetNode* root) {
+    BBSetIter it = {
+        .cur = root
+    };
+
+    bb_set_next(&it);
+
+    return it;
+}
+
+internal int bb_set_count(BBSetNode* root) {
+    if (!root) {
+        return 0;
+    }
+
+    return bb_set_count(root->l) + bb_set_count(root->r) + 1;
+}
+
+#define FOREACH_BB_SET(it, set) for (BBSetIter it = bb_set_begin(set); it.val; bb_set_next(&it))
+
+enum {
+    BB_WORKED = BIT(0),
+    BB_HAS_PHI = BIT(1)
+};
+
+internal void add_to_worklist(u8* worked, int* worklist_count, IRBasicBlock** worklist, IRBasicBlock* b) {
+    if (!(worked[b->id] & BB_WORKED)) {
+        worklist[(*worklist_count)++] = b;
+        worked[b->id] |= BB_WORKED;
     }
 }
 
 internal void mem2reg(IR* ir) {
     Scratch scratch = get_scratch(0, 0);
+
+    #if 0
+    BBSetNode* test = 0;
+    for (int i = 0; i < 1000; ++i) {
+        IRBasicBlock* b = arena_push_type(scratch.arena, IRBasicBlock);
+        b->id = i;
+        bb_set_insert(scratch.arena, &test, b);
+    }
+
+    FOREACH_BB_SET(it, test) {
+        printf("%d\n", it.val->id);
+    }
+    #endif
 
     int max_id = -1;
     FOREACH_IR_BB(b, ir->first_block)
@@ -195,38 +378,25 @@ internal void mem2reg(IR* ir) {
     assert(max_id >= 0);
     int nblock = max_id + 1;
 
+    // Post-order needed for dominance calculation
     PostOrder po = {
         .traversed = arena_push_array(scratch.arena, bool, nblock),
         .indices = arena_push_array(scratch.arena, int, nblock),
         .order = arena_push_array(scratch.arena, IRBasicBlock*, nblock),
     };
-
     get_post_order(&po, ir->first_block);
 
-    int* pred_count = arena_push_array(scratch.arena, int, nblock);
-    IRBasicBlock*** pred = arena_push_array(scratch.arena, IRBasicBlock**, nblock);
-
+    // Gather predecessors
+    BBSetNode** pred = arena_push_array(scratch.arena, BBSetNode*, nblock);
     FOREACH_IR_BB(b, ir->first_block) {
         BBList succ = bb_get_succ(b);
         for (int i = 0; i < succ.count; ++i) {
             IRBasicBlock* s = succ.data[i];
-            pred_count[s->id]++;
+            bb_set_insert(scratch.arena, &pred[s->id], b);
         }
     }
 
-    FOREACH_IR_BB(b, ir->first_block) {
-        pred[b->id] = arena_push_array(scratch.arena, IRBasicBlock*, pred_count[b->id]);
-        pred_count[b->id] = 0;
-    }
-
-    FOREACH_IR_BB(b, ir->first_block) {
-        BBList succ = bb_get_succ(b);
-        for (int i = 0; i < succ.count; ++i) {
-            IRBasicBlock* s = succ.data[i];
-            pred[s->id][pred_count[s->id]++] = b;
-        }
-    }
-
+    // Compute dominance information
     IRBasicBlock** idom = arena_push_array(scratch.arena, IRBasicBlock*, nblock);
     idom[ir->first_block->id] = ir->first_block;
 
@@ -239,11 +409,15 @@ internal void mem2reg(IR* ir) {
             if (b == ir->first_block)
                 continue;
 
-            IRBasicBlock* new_idom = pred[b->id][0];
+            BBSetIter it = bb_set_begin(pred[b->id]);
 
-            for (int j = 1; j < pred_count[b->id]; ++j)
+            IRBasicBlock* new_idom = it.val;
+            assert(new_idom);
+            bb_set_next(&it);
+
+            for (; it.val; bb_set_next(&it))
             {
-                IRBasicBlock* p = pred[b->id][j];
+                IRBasicBlock* p = it.val;
                 if (idom[p->id])
                     new_idom = first_common_dominator(idom, &po, p, new_idom);
             }
@@ -269,15 +443,16 @@ internal void mem2reg(IR* ir) {
     #endif
 
     // Compute dominance frontiers
-    BBNode** df = arena_push_array(scratch.arena, BBNode*, nblock);
+    BBSetNode** df = arena_push_array(scratch.arena, BBSetNode*, nblock);
     FOREACH_IR_BB(n, ir->first_block)
     {
-        if (!idom[n->id] || pred_count[n->id] <= 1)
+        if (!idom[n->id] || bb_set_count(pred[n->id]) <= 1)
             continue;
 
-        for (int i = 0; i < pred_count[n->id]; ++i)
+        FOREACH_BB_SET(it, pred[n->id])
         {
-            IRBasicBlock* runner = pred[n->id][i];
+            IRBasicBlock* runner = it.val;
+
             while (runner && runner != idom[n->id])
             {
                 if (!idom[runner->id])
@@ -289,11 +464,104 @@ internal void mem2reg(IR* ir) {
         }
     }
 
+    #if 0
     FOREACH_IR_BB(b, ir->first_block) {
         printf("DF bb.%d:\n", b->id);
-        bb_set_print(df[b->id]);
+        for (BBIter it = bb_set_begin(df[b->id]); it.val; bb_set_next(&it)) {
+            printf("  bb.%d\n", it.val->id);
+        }
     }
     printf("\n");
+    #endif
+
+    // Count number of allocations
+    u32 nallocs = 0;
+    for (IRAllocation* a = ir->first_allocation; a; a = a->next)
+        ++nallocs;
+
+    // Gather information about allocations in a hash table
+    u32 alloc_table_size = nallocs * 2;
+    IRAllocation** alloc_keys   = arena_push_array(scratch.arena, IRAllocation*, alloc_table_size);
+    BBSetNode** alloc_write_blocks = arena_push_array(scratch.arena, BBSetNode*, alloc_table_size);
+
+    // Gather the blocks that write to allocations
+    FOREACH_IR_BB(b, ir->first_block)
+    {
+        IRInstr* instr = b->start;
+        for (int i = 0; i < b->len; ++i)
+        {
+            if (instr->op == IR_OP_STORE) {
+                assert(instr->store.loc.kind == IR_VALUE_ALLOCATION);
+                IRAllocation* a = instr->store.loc.allocation;
+
+                u32 index = fnv_1_a_hash(&a, sizeof(a)) % alloc_table_size;
+
+                for (u32 j = 0; j < alloc_table_size; ++j) {
+                    if (!alloc_keys[index] || alloc_keys[index] == a) {
+                        alloc_keys[index] = a;
+                        break;
+                    }
+
+                    index = (index + 1) % alloc_table_size;
+                }
+
+                assert(alloc_keys[index] == a);
+                bb_set_insert(scratch.arena, &alloc_write_blocks[index], b);
+            }
+
+            instr = instr->next;
+        }
+    }
+
+    // Promote allocations to registers, rebuild SSA.
+    int worklist_count;
+    IRBasicBlock** worklist = arena_push_array(scratch.arena, IRBasicBlock*, nblock);
+    u8* worked = arena_push_array(scratch.arena, u8, nblock);
+
+    for (IRAllocation* a = ir->first_allocation; a; a = a->next)
+    {
+        worklist_count = 0;
+        memset(worked, 0, nblock * sizeof(worked[0]));
+
+        u32 index = fnv_1_a_hash(&a, sizeof(a)) % alloc_table_size;
+
+        for (u32 i = 0; i < alloc_table_size; ++i) {
+            if (!alloc_keys[index] || alloc_keys[index] == a)
+                break;
+
+            index = (index + 1) % alloc_table_size;
+        }
+
+        assert(alloc_keys[index] == a);
+
+        #if 0
+        printf("Allocation %p blocks:\n", a);
+        bb_set_print(alloc_write_blocks[index]);
+        printf("\n");
+        #endif
+
+        FOREACH_BB_SET(it, alloc_write_blocks[index]) {
+            add_to_worklist(worked, &worklist_count, worklist, it.val);
+        }
+
+        while (worklist_count > 0) // Blocks that write to this allocation
+        {
+            IRBasicBlock* write_block = worklist[--worklist_count];
+
+            FOREACH_BB_SET(it, df[write_block->id])
+            {
+                IRBasicBlock* d = it.val;
+
+                if (!(worked[d->id] & BB_HAS_PHI))
+                {
+                    printf("bb.%d needs phi for %p\n\n", d->id, a);
+                    worked[d->id] |= BB_HAS_PHI;
+                }
+
+                add_to_worklist(worked, &worklist_count, worklist, d);
+            }
+        }
+    }
 
     release_scratch(&scratch);
 }

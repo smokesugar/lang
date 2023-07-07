@@ -1,15 +1,18 @@
 {
-    if 1 {
-    }
-    else {
-        if 1 {
-            if 0 {
-            } else {
-            }
-        }
-        else {
-        }
+    bruh: i32 = 0;
+
+    while bruh < 20 {
+        bruh = bruh + 1;
     }
 
-    return 3;
+    result: i64 = 0;
+
+    if bruh == 420 {
+        result = 69;
+    }
+    else {
+        result = 10;
+    }
+
+    return result;
 }

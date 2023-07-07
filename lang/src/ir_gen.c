@@ -7,6 +7,7 @@ typedef struct {
     IRInstr* cur_instr;
     IRBasicBlock* cur_block;
     IRBasicBlock* first_block_to_be_placed;
+    IRAllocation* cur_allocation;
     IRReg next_reg;
     int next_block_id;
 } G;
@@ -221,6 +222,8 @@ internal IRReg gen(G* g, AST* ast) {
             IRAllocation* allocation = arena_push_type(g->arena, IRAllocation);
             ast->var_decl.sym->allocation = allocation;
 
+            g->cur_allocation = g->cur_allocation->next = allocation;
+
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
             instr->store.type = get_first_class_type(ast->var_decl.init->type);
             instr->store.src = reg_value(gen(g, ast->var_decl.init));
@@ -292,11 +295,13 @@ internal IRReg gen(G* g, AST* ast) {
 IR ir_gen(Arena* arena, AST* ast) {
     IRInstr instr_head = { 0 };
     IRBasicBlock block_head = { 0 };
+    IRAllocation allocation_head = { 0 };
 
     G g = {
         .arena = arena,
         .cur_instr = &instr_head,
         .cur_block = &block_head,
+        .cur_allocation = &allocation_head,
         .next_reg = 1
     };
 
@@ -315,6 +320,7 @@ IR ir_gen(Arena* arena, AST* ast) {
     return (IR) {
         .first_instr = instr_head.next,
         .first_block = block_head.next,
+        .first_allocation = allocation_head.next,
         .next_reg = g.next_reg,
         .num_regs = g.next_reg-1
     };

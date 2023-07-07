@@ -2,9 +2,13 @@
 
 #include "base.h"
 
-typedef struct {
-    i64 _val; // Temporary
-} IRAllocation;
+typedef u32 IRReg;
+
+typedef struct IRAllocation IRAllocation;
+struct IRAllocation {
+    IRAllocation* next;
+    i64 _val;
+};
 
 typedef enum {
     IR_TYPE_ILLEGAL,
@@ -62,8 +66,6 @@ struct IRBasicBlock {
     int len;
 };
 
-typedef u32 IRReg;
-
 typedef struct {
     IRValueKind kind;
     union {
@@ -72,6 +74,11 @@ typedef struct {
         IRAllocation* allocation;
     };
 } IRValue;
+
+typedef struct {
+    IRBasicBlock* block;
+    IRReg reg;
+} IRPhiParam;
 
 typedef struct IRInstr IRInstr;
 struct IRInstr {
@@ -124,6 +131,7 @@ struct IRInstr {
 typedef struct {
     IRInstr* first_instr;
     IRBasicBlock* first_block;
+    IRAllocation* first_allocation;
     IRReg next_reg;
     IRReg num_regs;
 } IR;
