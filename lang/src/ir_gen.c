@@ -10,6 +10,7 @@ typedef struct {
     IRAllocation* cur_allocation;
     IRReg next_reg;
     int next_block_id;
+    int next_allocation_id;
 } G;
 
 internal IRBasicBlock* new_ir_basic_block(Arena* arena) {
@@ -202,6 +203,7 @@ internal IRReg gen(G* g, AST* ast) {
             instr->store.loc = ir_allocation_value(allocation);
             emit(g, instr);
 
+            allocation->id = g->next_allocation_id++;
             allocation->type = instr->store.type;
 
             return 0;

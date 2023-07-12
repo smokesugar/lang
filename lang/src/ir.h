@@ -3,6 +3,7 @@
 #include "base.h"
 
 typedef u32 IRReg;
+#define IR_EMPTY_REG UINT32_MAX
 
 typedef enum {
     IR_TYPE_ILLEGAL,
@@ -17,6 +18,7 @@ typedef enum {
 
 typedef struct IRAllocation IRAllocation;
 struct IRAllocation {
+    int id;
     IRAllocation* next;
     IRType type;
     i64 _val;

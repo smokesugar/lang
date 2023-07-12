@@ -139,7 +139,8 @@ int main() {
                     }
                 }
                 assert(param);
-                regs[instr->phi.dest] = regs[param->reg];
+                if (param->reg != IR_EMPTY_REG)
+                    regs[instr->phi.dest] = regs[param->reg];
             } break;
 
             case IR_OP_COPY:

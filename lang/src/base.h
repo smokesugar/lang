@@ -4,6 +4,7 @@
 #include <memory.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -68,4 +69,38 @@ inline u64 fnv_1_a_hash(void* data, int len) {
     }
 
     return hash;
+}
+
+typedef struct {
+    u32 bit_count;
+    u32 p[1];
+} Bitset;
+
+inline u32 num_u32_for_bits(u32 bit_count) {
+    return bit_count / 32 + (bit_count % 32 != 0);
+}
+
+inline Bitset* bitset_alloc(Arena* arena, u32 bit_count) {
+    u32 num_u32 = num_u32_for_bits(bit_count);
+    Bitset* bitset = arena_push_clear(arena, offsetof(Bitset, p) + num_u32 * sizeof(u32));
+    bitset->bit_count = bit_count;
+    return bitset;
+}
+
+inline void bitset_set(Bitset* set, u32 index) {
+    assert(index < set->bit_count);
+    u32 i = index / 32;
+    set->p[i] |= 1 << (index % 32);
+}
+
+inline void bitset_unset(Bitset* set, u32 index) {
+    assert(index < set->bit_count);
+    u32 i = index / 32;
+    set->p[i] &= ~(1 << (index % 32));
+}
+
+inline bool bitset_get(Bitset* set, u32 index) {
+    assert(index < set->bit_count);
+    u32 i = index / 32;
+    return (set->p[i] >> (index % 32)) & 1;
 }

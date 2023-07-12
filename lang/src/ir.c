@@ -283,6 +283,7 @@ void insert_ir_instr_before(IR* ir, IRInstr* after, IRInstr* instr) {
     after->prev = instr;
 
     instr->block->len++;
+    bb_update_end(instr->block);
 }
 
 void insert_ir_instr_at_block_start(IR* ir, IRBasicBlock* b, IRInstr* instr) {
@@ -320,6 +321,7 @@ void insert_ir_instr_at_block_start(IR* ir, IRBasicBlock* b, IRInstr* instr) {
     }
 
     b->len++;
+    bb_update_end(instr->block);
 }
 
 void output_cfg_graphviz(IR* ir, char* path) {
