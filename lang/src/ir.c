@@ -91,13 +91,36 @@ void print_ir(IR* ir) {
             }
         }
 
-        static_assert(NUM_IR_OPS == 18, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 20, "not all ir ops handled");
         switch (instr->op) {
             case IR_OP_IMM:
                 printf("  ");
                 print_reg(instr->imm.dest);
                 printf(" = imm %s ", get_type_name(instr->imm.type));
                 print_value(instr->imm.val);
+                printf("\n");
+                break;
+
+            case IR_OP_PHI:
+                printf("  ");
+                print_reg(instr->phi.dest);
+                printf(" = phi %s", get_type_name(instr->phi.type));
+                for (int i = 0; i < instr->phi.param_count; ++i) {
+                    IRPhiParam param = instr->phi.params[i];
+
+                    if (i != 0)
+                        printf(",");
+
+                    printf(" [%%%d, bb.%d]", param.reg, param.block->id);
+                }
+                printf("\n");
+                break;
+
+            case IR_OP_COPY:
+                printf("  ");
+                print_reg(instr->copy.dest);
+                printf(" = copy %s ", get_type_name(instr->copy.type));
+                print_value(instr->copy.src);
                 printf("\n");
                 break;
 
@@ -236,6 +259,69 @@ void remove_ir_instr(IR* ir, IRInstr* instr) {
     bb_update_end(instr->block);
 }
 
+void insert_ir_instr_before(IR* ir, IRInstr* after, IRInstr* instr) {
+    instr->block = after->block;
+
+    if (after->block->start == after) {
+        for (IRBasicBlock* b = ir->first_block; b; b = b->next)
+        {
+            if (b->start == after) {
+                assert(b == instr->block || b->len == 0);
+                b->start = instr;
+            }
+        }
+    }
+
+    instr->next = after;
+    instr->prev = after->prev;
+
+    if (after->prev)
+        after->prev->next = instr;
+    else
+        ir->first_instr = instr;
+
+    after->prev = instr;
+
+    instr->block->len++;
+}
+
+void insert_ir_instr_at_block_start(IR* ir, IRBasicBlock* b, IRInstr* instr) {
+    instr->block = b;
+    instr->next = b->start;
+
+    if (b->start) {
+        instr->prev = b->start->prev;
+        b->start->prev = instr;
+    }
+    else {
+        if (ir->first_instr) {
+            IRInstr* last = ir->first_instr;
+
+            while (last->next)
+                last = last->next;
+
+            instr->prev = last;
+        }
+        else {
+            instr->prev = 0;
+        }
+    }
+
+    if (instr->prev)
+        instr->prev->next = instr;
+    else
+        ir->first_instr = instr;
+
+    for (IRBasicBlock* a = ir->first_block; a; a = a->next) {
+        if (a->start == b->start) {
+            assert(a == b || a->len == 0);
+            a->start = instr;
+        }
+    }
+
+    b->len++;
+}
+
 void output_cfg_graphviz(IR* ir, char* path) {
     (void)ir;
     
@@ -257,3 +343,32 @@ void output_cfg_graphviz(IR* ir, char* path) {
 
     fclose(file);
 }
+
+IRInstr* new_ir_instr(Arena* arena, IROpCode op) {
+    assert(op);
+    IRInstr* instr = arena_push_type(arena, IRInstr);
+    instr->op = op;
+    return instr;
+}
+
+IRValue ir_integer_value(u64 val) {
+    return (IRValue) {
+        .kind = IR_VALUE_INTEGER,
+        .integer = val
+    };
+}
+
+IRValue ir_reg_value(IRReg reg) {
+    return (IRValue) {
+        .kind = IR_VALUE_REG,
+        .reg = reg
+    };
+}
+
+IRValue ir_allocation_value(IRAllocation* allocation) {
+    return (IRValue) {
+        .kind = IR_VALUE_ALLOCATION,
+        .allocation = allocation
+    };
+}
+

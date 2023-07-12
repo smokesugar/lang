@@ -4,12 +4,6 @@
 
 typedef u32 IRReg;
 
-typedef struct IRAllocation IRAllocation;
-struct IRAllocation {
-    IRAllocation* next;
-    i64 _val;
-};
-
 typedef enum {
     IR_TYPE_ILLEGAL,
 
@@ -21,10 +15,19 @@ typedef enum {
     NUM_IR_TYPES
 } IRType;
 
+typedef struct IRAllocation IRAllocation;
+struct IRAllocation {
+    IRAllocation* next;
+    IRType type;
+    i64 _val;
+};
+
 typedef enum {
     IR_OP_ILLEGAL,
 
     IR_OP_IMM,
+    IR_OP_PHI,
+    IR_OP_COPY,
 
     IR_OP_STORE,
     IR_OP_LOAD,
@@ -95,6 +98,18 @@ struct IRInstr {
         struct {
             IRType type;
             IRReg dest;
+            int param_count;
+            IRPhiParam* params;
+            IRAllocation* a;
+        } phi;
+        struct {
+            IRType type;
+            IRReg dest;
+            IRValue src;
+        } copy;
+        struct {
+            IRType type;
+            IRReg dest;
             IRValue l;
             IRValue r;
         } bin;
@@ -146,7 +161,17 @@ BBList bb_get_succ(IRBasicBlock* block);
 void bb_update_end(IRBasicBlock* block);
 
 void print_ir(IR* ir);
+
 void remove_ir_instr(IR* ir, IRInstr* instr);
+void insert_ir_instr_before(IR* ir, IRInstr* after, IRInstr* instr);
+void insert_ir_instr_at_block_start(IR* ir, IRBasicBlock* b, IRInstr* instr);
+
 void output_cfg_graphviz(IR* ir, char* path);
+
+IRInstr* new_ir_instr(Arena* arena, IROpCode op);
+
+IRValue ir_integer_value(u64 val);
+IRValue ir_reg_value(IRReg reg);
+IRValue ir_allocation_value(IRAllocation* allocation);
 
 #define FOREACH_IR_BB(name, head) for (IRBasicBlock* name = (head); name; name = name->next)

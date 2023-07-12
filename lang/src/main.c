@@ -103,7 +103,7 @@ int main() {
     if (!sem_ast(&arena, src, &prog, ast)) return 1;
 
     IR ir = ir_gen(&arena, ast);
-    optimize(&ir);
+    optimize(&arena, &ir);
 
     output_cfg_graphviz(&ir, "graph.txt");
 
@@ -111,8 +111,16 @@ int main() {
 
     i64 regs[512];
 
+    IRBasicBlock* cur_bb = ir.first_block;
+    IRBasicBlock* prev_bb = 0;
+
     for (IRInstr* instr = ir.first_instr; instr;) {
-        static_assert(NUM_IR_OPS == 18, "not all ir ops handled");
+        if (instr->block != cur_bb) {
+            prev_bb = cur_bb;
+            cur_bb = instr->block;
+        }
+
+        static_assert(NUM_IR_OPS == 20, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
@@ -122,9 +130,26 @@ int main() {
                 regs[instr->imm.dest] = value_val(regs, instr->imm.val);
                 break;
 
+            case IR_OP_PHI: {
+                IRPhiParam* param = 0;
+                for (int i = 0; i < instr->phi.param_count; ++i) {
+                    if (instr->phi.params[i].block == prev_bb) {
+                        param = &instr->phi.params[i];
+                        break;
+                    }
+                }
+                assert(param);
+                regs[instr->phi.dest] = regs[param->reg];
+            } break;
+
+            case IR_OP_COPY:
+                regs[instr->copy.dest] = value_val(regs, instr->copy.src);
+                break;
+
             case IR_OP_LOAD:
                 regs[instr->load.dest] = *value_addr(instr->load.loc);
                 break;
+
             case IR_OP_STORE:
                 *value_addr(instr->store.loc) = value_val(regs, instr->store.src);
                 break;
@@ -169,8 +194,8 @@ int main() {
                 continue;
 
             case IR_OP_BRANCH: {
-                IRBasicBlock* block = value_val(regs, instr->branch.cond) ? instr->branch.then_loc : instr->branch.els_loc;
-                instr = block->start;
+                IRBasicBlock* b = value_val(regs, instr->branch.cond) ? instr->branch.then_loc : instr->branch.els_loc;
+                instr = b->start;
             } continue;
         }
 

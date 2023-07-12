@@ -2,4 +2,4 @@
 
 #include "ir.h"
 
-void optimize(IR* ir);
+void optimize(Arena* arena, IR* ir);

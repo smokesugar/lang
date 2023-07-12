@@ -7,7 +7,7 @@
 
     result: i64 = 0;
 
-    if bruh == 420 {
+    if bruh == 20 {
         result = 69;
     }
     else {

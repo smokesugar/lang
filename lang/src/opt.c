@@ -62,7 +62,7 @@ internal void immediate_operands(IR* ir) {
 
     for (IRInstr* instr = ir->first_instr; instr; instr = instr->next)
     {
-        static_assert(NUM_IR_OPS == 18, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 20, "not all ir ops handled");
         switch (instr->op) {
             case IR_OP_IMM: {
                 RegData* data = get_reg_data(&reg_table, instr->imm.dest);
@@ -71,6 +71,13 @@ internal void immediate_operands(IR* ir) {
                 remove_ir_instr(ir, instr);
                 --ir->num_regs;
             } break;
+
+            case IR_OP_PHI:
+                break;
+
+            case IR_OP_COPY:
+                opt_value(&reg_table, &instr->copy.src);
+                break;
 
             case IR_OP_LOAD:
                 opt_value(&reg_table, &instr->load.loc);
@@ -355,21 +362,119 @@ internal void add_to_worklist(u8* worked, int* worklist_count, IRBasicBlock** wo
     }
 }
 
-internal void mem2reg(IR* ir) {
+internal u32 alloc_table_index(IRAllocation** keys, u32 table_size, IRAllocation* a) {
+    u32 index = fnv_1_a_hash(&a, sizeof(a)) % table_size;
+
+    for (u32 j = 0; j < table_size; ++j) {
+        if (!keys[index] || keys[index] == a)
+            break;
+
+        index = (index + 1) % table_size;
+    }
+
+    return index;
+}
+
+internal IRReg new_name(IR* ir, IRAllocation** keys, IRReg* cur_regs, u32 table_size, IRAllocation* a) {
+    u32 index = alloc_table_index(keys, table_size, a);
+    assert(keys[index] == a);
+    cur_regs[index] = ir->next_reg++;
+    return cur_regs[index];
+} 
+
+internal IRReg cur_name(IRAllocation** keys, IRReg* cur_regs, u32 table_size, IRAllocation* a) {
+    u32 index = alloc_table_index(keys, table_size, a);
+    assert(keys[index] == a);
+    return cur_regs[index];
+}
+
+internal void promote_allocations(IR* ir, IRAllocation** keys, IRReg* cur_regs, u32 table_size, BBSetNode** dom_children, IRBasicBlock* b) {
     Scratch scratch = get_scratch(0, 0);
 
-    #if 0
-    BBSetNode* test = 0;
-    for (int i = 0; i < 1000; ++i) {
-        IRBasicBlock* b = arena_push_type(scratch.arena, IRBasicBlock);
-        b->id = i;
-        bb_set_insert(scratch.arena, &test, b);
+    IRReg* cur_regs_temp = arena_push_array(scratch.arena, IRReg, table_size);
+    memcpy(cur_regs_temp, cur_regs, table_size * sizeof(IRReg));
+
+    IRInstr* instr = b->start;
+    for (int i = 0; i < b->len; ++i)
+    {
+        switch (instr->op) {
+            case IR_OP_PHI: {
+                instr->phi.dest = new_name(ir, keys, cur_regs, table_size, instr->phi.a);
+            } break;
+
+            case IR_OP_STORE: {
+                assert(instr->store.loc.kind == IR_VALUE_ALLOCATION);
+                IRAllocation* a = instr->store.loc.allocation;
+
+                IRValue src = instr->store.src;
+                IRType type = instr->store.type;
+
+                instr->op = IR_OP_COPY;
+                instr->copy.type = type;
+                instr->copy.dest = new_name(ir, keys, cur_regs, table_size, a);
+                instr->copy.src = src;
+            } break;
+
+            case IR_OP_LOAD: {
+                assert(instr->load.loc.kind == IR_VALUE_ALLOCATION);
+                IRAllocation* a = instr->load.loc.allocation;
+
+                IRReg dest = instr->load.dest;
+                IRType type = instr->load.type;
+
+                instr->op = IR_OP_COPY;
+                instr->copy.type = type;
+                instr->copy.dest = dest;
+                instr->copy.src = ir_reg_value(cur_name(keys, cur_regs, table_size, a));
+            } break;
+        }
+
+        instr = instr->next;
     }
 
-    FOREACH_BB_SET(it, test) {
-        printf("%d\n", it.val->id);
+    BBList succ = bb_get_succ(b);
+
+    for (int i = 0; i < succ.count; ++i)
+    {
+        IRBasicBlock* s = succ.data[i];
+
+        instr = s->start;
+        for (int j = 0; j < s->len; ++j)
+        {
+            if (instr->op != IR_OP_PHI)
+                break;
+             
+            IRReg cur = cur_regs[alloc_table_index(keys, table_size, instr->phi.a)];
+            assert(cur);
+
+            IRPhiParam* param = 0;
+
+            for (int k = 0; k < instr->phi.param_count; ++k)
+            {
+                IRPhiParam* p = &instr->phi.params[k];
+                if (p->block == b) {
+                    param = p;
+                    break;
+                }
+            }
+
+            assert(param);
+            param->reg = cur;
+
+            instr = instr->next;
+        }
     }
-    #endif
+
+    FOREACH_BB_SET(it, dom_children[b->id]) {
+        promote_allocations(ir, keys, cur_regs, table_size, dom_children, it.val);
+    }
+
+    memcpy(cur_regs, cur_regs_temp, table_size * sizeof(IRReg));
+    release_scratch(&scratch);
+}
+
+internal void mem2reg(Arena* arena, IR* ir) {
+    Scratch scratch = get_scratch(0, 0);
 
     int max_id = -1;
     FOREACH_IR_BB(b, ir->first_block)
@@ -434,13 +539,12 @@ internal void mem2reg(IR* ir) {
 
     idom[ir->first_block->id] = 0;
 
-    #if 0
-    FOREACH_IR_BB(b, ir->first_block) {
-        if (idom[b->id])
-            printf("bb.%d dominator: bb.%d\n", b->id, idom[b->id]->id);
+    BBSetNode** dom_children = arena_push_array(scratch.arena, BBSetNode*, nblock);
+    FOREACH_IR_BB(n, ir->first_block) {
+        IRBasicBlock* dom = idom[n->id];
+        if (dom)
+            bb_set_insert(scratch.arena, &dom_children[dom->id], n);
     }
-    printf("\n");
-    #endif
 
     // Compute dominance frontiers
     BBSetNode** df = arena_push_array(scratch.arena, BBSetNode*, nblock);
@@ -464,16 +568,6 @@ internal void mem2reg(IR* ir) {
         }
     }
 
-    #if 0
-    FOREACH_IR_BB(b, ir->first_block) {
-        printf("DF bb.%d:\n", b->id);
-        for (BBIter it = bb_set_begin(df[b->id]); it.val; bb_set_next(&it)) {
-            printf("  bb.%d\n", it.val->id);
-        }
-    }
-    printf("\n");
-    #endif
-
     // Count number of allocations
     u32 nallocs = 0;
     for (IRAllocation* a = ir->first_allocation; a; a = a->next)
@@ -481,8 +575,9 @@ internal void mem2reg(IR* ir) {
 
     // Gather information about allocations in a hash table
     u32 alloc_table_size = nallocs * 2;
-    IRAllocation** alloc_keys   = arena_push_array(scratch.arena, IRAllocation*, alloc_table_size);
+    IRAllocation** alloc_keys      = arena_push_array(scratch.arena, IRAllocation*, alloc_table_size);
     BBSetNode** alloc_write_blocks = arena_push_array(scratch.arena, BBSetNode*, alloc_table_size);
+    IRReg* alloc_cur_regs          = arena_push_array(scratch.arena, IRReg, alloc_table_size);
 
     // Gather the blocks that write to allocations
     FOREACH_IR_BB(b, ir->first_block)
@@ -494,18 +589,12 @@ internal void mem2reg(IR* ir) {
                 assert(instr->store.loc.kind == IR_VALUE_ALLOCATION);
                 IRAllocation* a = instr->store.loc.allocation;
 
-                u32 index = fnv_1_a_hash(&a, sizeof(a)) % alloc_table_size;
+                u32 index = alloc_table_index(alloc_keys, alloc_table_size, a);
 
-                for (u32 j = 0; j < alloc_table_size; ++j) {
-                    if (!alloc_keys[index] || alloc_keys[index] == a) {
-                        alloc_keys[index] = a;
-                        break;
-                    }
-
-                    index = (index + 1) % alloc_table_size;
-                }
-
+                if (!alloc_keys[index])
+                    alloc_keys[index] = a;
                 assert(alloc_keys[index] == a);
+
                 bb_set_insert(scratch.arena, &alloc_write_blocks[index], b);
             }
 
@@ -514,6 +603,7 @@ internal void mem2reg(IR* ir) {
     }
 
     // Promote allocations to registers, rebuild SSA.
+
     int worklist_count;
     IRBasicBlock** worklist = arena_push_array(scratch.arena, IRBasicBlock*, nblock);
     u8* worked = arena_push_array(scratch.arena, u8, nblock);
@@ -523,22 +613,8 @@ internal void mem2reg(IR* ir) {
         worklist_count = 0;
         memset(worked, 0, nblock * sizeof(worked[0]));
 
-        u32 index = fnv_1_a_hash(&a, sizeof(a)) % alloc_table_size;
-
-        for (u32 i = 0; i < alloc_table_size; ++i) {
-            if (!alloc_keys[index] || alloc_keys[index] == a)
-                break;
-
-            index = (index + 1) % alloc_table_size;
-        }
-
+        u32 index = alloc_table_index(alloc_keys, alloc_table_size, a);
         assert(alloc_keys[index] == a);
-
-        #if 0
-        printf("Allocation %p blocks:\n", a);
-        bb_set_print(alloc_write_blocks[index]);
-        printf("\n");
-        #endif
 
         FOREACH_BB_SET(it, alloc_write_blocks[index]) {
             add_to_worklist(worked, &worklist_count, worklist, it.val);
@@ -554,7 +630,22 @@ internal void mem2reg(IR* ir) {
 
                 if (!(worked[d->id] & BB_HAS_PHI))
                 {
-                    printf("bb.%d needs phi for %p\n\n", d->id, a);
+                    int param_count = bb_set_count(pred[d->id]);
+                    assert(param_count > 0);
+
+                    IRInstr* instr = new_ir_instr(arena, IR_OP_PHI);
+                    instr->phi.type = a->type;
+                    instr->phi.param_count = param_count;
+                    instr->phi.params = arena_push_array(arena, IRPhiParam, param_count);
+                    instr->phi.a = a;
+
+                    int counter = 0;
+                    FOREACH_BB_SET(it2, pred[d->id]) {
+                        instr->phi.params[counter++].block = it2.val;
+                    }
+
+                    insert_ir_instr_at_block_start(ir, d, instr);
+                    
                     worked[d->id] |= BB_HAS_PHI;
                 }
 
@@ -563,10 +654,12 @@ internal void mem2reg(IR* ir) {
         }
     }
 
+    promote_allocations(ir, alloc_keys, alloc_cur_regs, alloc_table_size, dom_children, ir->first_block);
+
     release_scratch(&scratch);
 }
 
-void optimize(IR* ir) {
+void optimize(Arena* arena, IR* ir) {
     immediate_operands(ir);
-    mem2reg(ir);
+    mem2reg(arena, ir);
 }
