@@ -59,21 +59,15 @@ IRType get_first_class_type(Type* type) {
     }
 }
 
-internal IRReg gen(G* g, AST* ast) {
+internal IRValue gen(G* g, AST* ast) {
     static_assert(NUM_AST_KINDS == 18, "not all ast kinds handled");
     switch (ast->kind) {
         default:
             assert(false);
-            return 0;
+            return (IRValue){0};
 
-        case AST_INT: {
-            IRInstr* instr = new_ir_instr(g->arena, IR_OP_IMM);
-            instr->imm.type = get_first_class_type(ast->type);
-            instr->imm.dest = new_reg(g);
-            instr->imm.val = ir_integer_value(ast->int_val);
-            emit(g, instr);
-            return instr->imm.dest;
-        }
+        case AST_INT:
+            return ir_integer_value(ast->int_val);
 
         case AST_VAR: {
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_LOAD);
@@ -81,14 +75,14 @@ internal IRReg gen(G* g, AST* ast) {
             instr->load.loc = ir_allocation_value(ast->var.sym->allocation);
             instr->load.dest = new_reg(g);
             emit(g, instr);
-            return instr->load.dest;
+            return ir_reg_value(instr->load.dest);
         }
 
         case AST_CAST: {
             Type* a = ast->cast.expr->type;
             Type* b = ast->type;
 
-            IRReg src = gen(g, ast->cast.expr);
+            IRValue src = gen(g, ast->cast.expr);
             IROpCode op = 0;
 
             if (a->size > b->size) {
@@ -107,11 +101,11 @@ internal IRReg gen(G* g, AST* ast) {
             IRInstr* instr = new_ir_instr(g->arena, op);
             instr->cast.type_src = get_first_class_type(a);
             instr->cast.type_dest = get_first_class_type(b);
-            instr->cast.src = ir_reg_value(src);
+            instr->cast.src = src;
             instr->cast.dest = new_reg(g);
             emit(g, instr);
 
-            return instr->cast.dest;
+            return ir_reg_value(instr->cast.dest);
         }
 
         case AST_ADD:
@@ -153,22 +147,22 @@ internal IRReg gen(G* g, AST* ast) {
 
             IRInstr* instr = new_ir_instr(g->arena, op);
             instr->bin.type = get_first_class_type(ast->type);
-            instr->bin.l = ir_reg_value(gen(g, ast->bin.l));
-            instr->bin.r = ir_reg_value(gen(g, ast->bin.r));
+            instr->bin.l = gen(g, ast->bin.l);
+            instr->bin.r = gen(g, ast->bin.r);
             instr->bin.dest = new_reg(g);
             emit(g, instr);
 
-            return instr->bin.dest;
+            return ir_reg_value(instr->bin.dest);
         }
 
         case AST_ASSIGN: {
             assert(ast->bin.l->kind == AST_VAR);
 
-            IRReg result = gen(g, ast->bin.r);
+            IRValue result = gen(g, ast->bin.r);
 
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
             instr->store.type = get_first_class_type(ast->type);
-            instr->store.src = ir_reg_value(result);
+            instr->store.src = result;
             instr->store.loc = ir_allocation_value(ast->bin.l->var.sym->allocation);
             emit(g, instr);
 
@@ -178,17 +172,17 @@ internal IRReg gen(G* g, AST* ast) {
         case AST_BLOCK:
             for (AST* c = ast->block.first_stmt; c; c = c->next)
                 gen(g, c);
-            return 0;
+            return (IRValue) { 0 };
 
         case AST_RETURN: {
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_RET);
             instr->ret.type = get_first_class_type(ast->return_val->type);
-            instr->ret.val = ir_reg_value(gen(g, ast->return_val));
+            instr->ret.val = gen(g, ast->return_val);
             emit(g, instr);
 
             place_block(g, new_ir_basic_block(g->arena));
 
-            return 0;
+            return (IRValue) { 0 };
         }
 
         case AST_VAR_DECL: {
@@ -199,14 +193,14 @@ internal IRReg gen(G* g, AST* ast) {
 
             IRInstr* instr = new_ir_instr(g->arena, IR_OP_STORE);
             instr->store.type = get_first_class_type(ast->var_decl.init->type);
-            instr->store.src = ir_reg_value(gen(g, ast->var_decl.init));
+            instr->store.src = gen(g, ast->var_decl.init);
             instr->store.loc = ir_allocation_value(allocation);
             emit(g, instr);
 
             allocation->id = g->next_allocation_id++;
             allocation->type = instr->store.type;
 
-            return 0;
+            return (IRValue) { 0 };
         }
 
         case AST_IF: {
@@ -216,7 +210,7 @@ internal IRReg gen(G* g, AST* ast) {
 
             IRInstr* br = new_ir_instr(g->arena, IR_OP_BRANCH);
             br->branch.type = get_first_class_type(ast->conditional.cond->type);
-            br->branch.cond = ir_reg_value(gen(g, ast->conditional.cond));
+            br->branch.cond = gen(g, ast->conditional.cond);
             br->branch.then_loc = then;
             br->branch.els_loc  = els;
             emit(g, br);
@@ -238,7 +232,7 @@ internal IRReg gen(G* g, AST* ast) {
                 place_block(g, end);
             }
 
-            return 0;
+            return (IRValue) { 0 };
         }
 
         case AST_WHILE: {
@@ -249,7 +243,7 @@ internal IRReg gen(G* g, AST* ast) {
             place_block(g, start);
             IRInstr* br = new_ir_instr(g->arena, IR_OP_BRANCH);
             br->branch.type = get_first_class_type(ast->conditional.cond->type);
-            br->branch.cond = ir_reg_value(gen(g, ast->conditional.cond));
+            br->branch.cond = gen(g, ast->conditional.cond);
             br->branch.then_loc = body;
             br->branch.els_loc  = end;
             emit(g, br);
@@ -263,7 +257,7 @@ internal IRReg gen(G* g, AST* ast) {
 
             place_block(g, end);
 
-            return 0;
+            return (IRValue) { 0 };
         }
     }
 }
@@ -298,6 +292,5 @@ IR ir_gen(Arena* arena, AST* ast) {
         .first_block = block_head.next,
         .first_allocation = allocation_head.next,
         .next_reg = g.next_reg,
-        .num_regs = g.next_reg-1
     };
 }

@@ -27,7 +27,6 @@ struct IRAllocation {
 typedef enum {
     IR_OP_ILLEGAL,
 
-    IR_OP_IMM,
     IR_OP_PHI,
     IR_OP_COPY,
 
@@ -95,11 +94,6 @@ struct IRInstr {
         struct {
             IRType type;
             IRReg dest;
-            IRValue val; 
-        } imm;
-        struct {
-            IRType type;
-            IRReg dest;
             int param_count;
             IRPhiParam* params;
             IRAllocation* a;
@@ -150,7 +144,6 @@ typedef struct {
     IRBasicBlock* first_block;
     IRAllocation* first_allocation;
     IRReg next_reg;
-    IRReg num_regs;
 } IR;
 
 typedef struct {

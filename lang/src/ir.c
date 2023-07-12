@@ -59,7 +59,7 @@ internal void print_value(IRValue value) {
             printf("%llu", value.integer);
             break;
         case IR_VALUE_ALLOCATION:
-            printf("[alloca %p]", value.allocation);
+            printf("[alloca %d]", value.allocation->id);
             break;
     }
 }
@@ -91,16 +91,8 @@ void print_ir(IR* ir) {
             }
         }
 
-        static_assert(NUM_IR_OPS == 20, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 19, "not all ir ops handled");
         switch (instr->op) {
-            case IR_OP_IMM:
-                printf("  ");
-                print_reg(instr->imm.dest);
-                printf(" = imm %s ", get_type_name(instr->imm.type));
-                print_value(instr->imm.val);
-                printf("\n");
-                break;
-
             case IR_OP_PHI:
                 printf("  ");
                 print_reg(instr->phi.dest);

@@ -103,10 +103,13 @@ int main() {
     if (!sem_ast(&arena, src, &prog, ast)) return 1;
 
     IR ir = ir_gen(&arena, ast);
+
+    printf("Pre-optimizaton:\n--------------------------\n");
+    print_ir(&ir);
+
     optimize(&arena, &ir);
 
-    output_cfg_graphviz(&ir, "graph.txt");
-
+    printf("Post-optimizaton:\n-------------------------\n");
     print_ir(&ir);
 
     i64 regs[512];
@@ -120,14 +123,10 @@ int main() {
             cur_bb = instr->block;
         }
 
-        static_assert(NUM_IR_OPS == 20, "not all ir ops handled");
+        static_assert(NUM_IR_OPS == 19, "not all ir ops handled");
         switch (instr->op) {
             default:
                 assert(false);
-                break;
-
-            case IR_OP_IMM:
-                regs[instr->imm.dest] = value_val(regs, instr->imm.val);
                 break;
 
             case IR_OP_PHI: {
