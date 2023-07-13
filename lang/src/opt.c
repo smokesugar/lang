@@ -477,14 +477,16 @@ internal void mem2reg(Arena* arena, IR* ir) {
                 IRBasicBlock* m = succ.data[s];
                 for (u32 j = 0; j < num_u32; ++j)
                 {
+                    u32* dw = &live_out[n->id]->p[j];
+
                     u32 ue_var_m   = ue_var  [m->id]->p[j];
                     u32 live_out_m = live_out[m->id]->p[j];
                     u32 var_kill_m = var_kill[m->id]->p[j];
 
                     u32 add = ue_var_m | (live_out_m & ~var_kill_m);
-                    if (add != live_out[n->id]->p[j]) {
+                    if ((add | *dw) != *dw) {
                         changed = true;
-                        live_out[n->id]->p[j] |= add;
+                        *dw |= add;
                     }
                 }
             }
